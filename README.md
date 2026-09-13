@@ -7,6 +7,8 @@ Custom Lovelace cards and a badge for the
 next delivery status, your shopping cart, delivery slots, account details and
 spending analytics, all rendered natively with your dashboard theme.
 
+![Rohlík.cz cards overview](docs/images/overview.png)
+
 ## Installation
 
 ### HACS (recommended)
@@ -37,6 +39,21 @@ spending analytics, all rendered natively with your dashboard theme.
 | `rohlik-slots-card`          | Delivery Slots  | [docs/cards/slots-card.md](docs/cards/slots-card.md) |
 | `rohlik-account-card`        | Account         | [docs/cards/account-card.md](docs/cards/account-card.md) |
 | `rohlik-spending-card`       | Spending        | [docs/cards/spending-card.md](docs/cards/spending-card.md) |
+
+<table>
+  <tr>
+    <td><img src="docs/images/delivery-card.png" alt="Next Delivery card" width="420"></td>
+    <td><img src="docs/images/cart-card.png" alt="Shopping Cart card" width="420"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/slots-card.png" alt="Delivery Slots card" width="420"></td>
+    <td><img src="docs/images/account-card.png" alt="Account card" width="420"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/spending-card.png" alt="Spending card" width="420"></td>
+    <td><img src="docs/images/delivery-badge.png" alt="Delivery badge" width="420"></td>
+  </tr>
+</table>
 
 Quick start — add a card via **Edit dashboard → Add card → Rohlík.cz Next Delivery**,
 or in YAML:
@@ -70,6 +87,14 @@ npm run format       # prettier --write .
 
 See [docs/dev/README.md](docs/dev/README.md) for a throwaway Home Assistant
 container to try cards against a live `rohlikcz` integration while developing.
+
+**Preview harness.** `npm run build && npm run screenshots` loads the built
+`dist/rohlik-cards.js` in headless Chromium against a mocked `hass`
+(`docs/dev/preview/`, no live Home Assistant needed) and regenerates every PNG
+under `docs/images/`, including this README's overview. Open
+`docs/dev/preview/index.html` yourself (served over `http(s)`, not `file://`,
+so the module import resolves) to poke at a card live; `?lang=en`, `?theme=dark`
+and `?state=arriving|ordered|none|delivered` switch the mock's scenario.
 
 ## License
 

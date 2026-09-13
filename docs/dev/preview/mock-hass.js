@@ -483,7 +483,7 @@ export function buildHass({ lang = "cs", state = "arriving" } = {}) {
   }
 
   // ---- sensor: cart ----
-  add("sensor", "cart_price", CART_TOTAL, { "Total items": CART_ITEMS.length, "Can Order": true });
+  add("sensor", "cart_price", CART_TOTAL, { "Total items": CART_ITEMS.length, "Can Order": false });
 
   // ---- sensor: account ----
   add("sensor", "credit_amount", 312, {});

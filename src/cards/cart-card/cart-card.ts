@@ -30,6 +30,8 @@ export interface CartCardConfig extends RohlikCardConfig {
   max_items?: number;
   /** Max height of the item list in px before it scrolls; 0 = unlimited. */
   list_max_height?: number;
+  /** Minimum order value in CZK used for the "below minimum" hint; 0 = do not judge. */
+  min_order?: number;
   show_order_button?: boolean;
   checkout_url?: string;
 }
@@ -497,7 +499,13 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
 
     const priceState = this.state("cart_price");
     const total = this.totalOverride ?? (priceState ? parseFloat(priceState.state) : 0);
-    const canOrder = Boolean(this.attr("cart_price", "Can Order"));
+    // `Can Order` mirrors Rohlík's submitConditionPassed, which is only true
+    // once slot, address and payment are all set at checkout — it says
+    // nothing about the minimum order value. Judge the minimum ourselves.
+    const readyToSubmit = Boolean(this.attr("cart_price", "Can Order"));
+    const minOrder = this.config.min_order ?? 0;
+    const noLimitLeft = Number(this.state("no_limit")?.state) > 0;
+    const belowMinimum = minOrder > 0 && !noLimitLeft && total < minOrder;
     const totalItemsAttr = this.attr("cart_price", "Total items");
     const totalItems =
       this.itemsOverride ?? (typeof totalItemsAttr === "number" ? totalItemsAttr : this.lines.length);
@@ -508,16 +516,22 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     const grouped = this.config.group_by_category === true;
     const maxItems = this.config.max_items ?? DEFAULT_MAX_ITEMS;
     const showOrderButton = this.config.show_order_button !== false;
-    const canOrderNow = canOrder && !isEmpty;
+    const canOrderNow = !isEmpty;
 
     return html`
       <ha-card style=${styleMap(this.accentStyle)}>
         <div class="header">
           <ha-icon icon="mdi:cart"></ha-icon>
           <span class="title">${this.config.name || this.t("title")}</span>
-          <span class="chip ${canOrder ? "ok" : "warn"}">
-            ${canOrder ? this.t("can_order") : this.t("below_minimum")}
-          </span>
+          ${isEmpty
+            ? nothing
+            : readyToSubmit
+              ? html`<span class="chip ok">${this.t("ready_to_order")}</span>`
+              : belowMinimum
+                ? html`<span class="chip warn">${this.t("below_minimum")}</span>`
+                : minOrder > 0
+                  ? html`<span class="chip ok">${this.t("can_order")}</span>`
+                  : nothing}
         </div>
 
         <div class="big">${formatMoney(this.hass, Number.isFinite(total) ? total : 0)}</div>
@@ -525,8 +539,10 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
           ${isEmpty ? this.t("empty_cart") : this.t("items_count", { count: totalItems })}
         </div>
         ${isEmpty ? this.renderEmptyHint() : nothing}
-        ${!isEmpty && !canOrder
-          ? html`<div class="hint minimum-hint">${this.t("below_minimum_order")}</div>`
+        ${belowMinimum && !isEmpty
+          ? html`<div class="hint minimum-hint">
+              ${this.t("below_minimum_by", { amount: formatMoney(this.hass, minOrder - total) })}
+            </div>`
           : nothing}
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
         ${showSearch ? this.renderSearch() : nothing}
@@ -561,7 +577,7 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
         target="_blank"
         rel="noopener noreferrer"
         aria-disabled=${enabled ? nothing : "true"}
-        title=${enabled ? this.t("order_hint") : this.t("below_minimum_order")}
+        title=${enabled ? this.t("order_hint") : this.t("empty_cart")}
       >
         <ha-icon icon="mdi:cart-arrow-right"></ha-icon>
         ${this.t("order")}

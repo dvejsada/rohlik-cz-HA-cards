@@ -17,7 +17,8 @@ the cart.
 | `show_brand`          | boolean | `true`  | Show the brand in each line's secondary text. |
 | `max_items`           | number  | `0`     | Lines to show before collapsing the rest behind "Show all N"; `0` shows every line and lets the list scroll instead. |
 | `list_max_height`     | number  | `360`   | Maximum height of the item list in px; beyond that the list scrolls inside the card. `0` = unlimited. |
-| `show_order_button`   | boolean | `true`  | Show the "Order" button in the footer that opens the Rohlík.cz cart. |
+| `min_order`           | number  | `0`     | Minimum order value in Kč. When set, the card shows an "Above/Below minimum" chip and how much is missing; remaining Xtra no-limit orders count as above the minimum. `0` disables the check. |
+| `show_order_button`   | boolean | `true`  | Show the "Order" button in the footer that opens the Rohlík.cz cart. The button is enabled whenever the cart is not empty; Rohlík.cz enforces the real ordering rules at checkout. |
 | `checkout_url`        | string  | `https://www.rohlik.cz/kosik` | URL the "Order" button opens in a new tab. |
 
 ## YAML example
@@ -30,6 +31,7 @@ group_by_category: false
 show_brand: true
 max_items: 0
 list_max_height: 360
+min_order: 0
 show_order_button: true
 checkout_url: https://www.rohlik.cz/kosik
 ```
@@ -38,8 +40,14 @@ checkout_url: https://www.rohlik.cz/kosik
 
 - **Data**: cart lines come from the `shopping_cart` `todo` entity via
   `todo/item/list`; the total price and item count come from the
-  `cart_price` sensor's state and `Total items` attribute, and the
-  "Can order" / "Below minimum" header chip from its `Can Order` attribute.
+  `cart_price` sensor's state and `Total items` attribute. The header chip
+  says "Ready to order" when the sensor's `Can Order` attribute is true
+  (Rohlík's own "everything is set, you can submit" flag, which only turns
+  true once a slot, address and payment are chosen at checkout); otherwise,
+  when `min_order` is set, it says "Above minimum" / "Below minimum"
+  compared against the cart total, with remaining Xtra no-limit orders
+  counting as above the minimum. Without `min_order` and without the flag,
+  no chip is shown.
   Items are re-fetched whenever the `todo` entity's state/`last_updated` or
   the `cart_price` state changes.
 - **Remove a line**: the `×` button calls `todo.remove_item` with the
@@ -85,11 +93,10 @@ checkout_url: https://www.rohlik.cz/kosik
   - **Escape** clears the box and closes the popover.
 - **Order button** (`show_order_button`): a primary button in the footer,
   next to Refresh, that opens `checkout_url` (default the Rohlík.cz cart) in
-  a new tab. It's only enabled when the `cart_price` sensor's `Can Order`
-  attribute is true and the cart isn't empty; otherwise it renders disabled
-  (`aria-disabled`, muted, no `href`) with a "Below minimum order" tooltip.
-  The same hint appears as a line under the total whenever the cart is
-  non-empty but below the minimum order value.
+  a new tab. It's enabled whenever the cart isn't empty (Rohlík.cz enforces
+  the real ordering rules at checkout); with an empty cart it renders
+  disabled (`aria-disabled`, muted, no `href`). When `min_order` is set and
+  the cart is below it, a line under the total says how much is missing.
 - **Quick-add parsing** (`src/cards/cart-card/parse.ts#parseQuickAdd`): a
   leading integer + space is the quantity ("`3 Mléko`" → qty 3, "Mléko");
   otherwise a trailing "`(N)`" is the quantity ("Mléko (3)" → qty 3,
@@ -114,8 +121,8 @@ checkout_url: https://www.rohlik.cz/kosik
   as a group next to Refresh.
 - **Narrow widths**: the card uses a container query (`@container
   (max-width: 420px)`), so it adapts to its own column width rather than the
-  viewport. Below 420px: the header wraps so the "Can order"/"Below minimum"
-  chip drops under the title; each cart line stacks into two rows (name on
+  viewport. Below 420px: the header wraps so the status chip drops under the
+  title; each cart line stacks into two rows (name on
   the first, the stepper/price/remove group right-aligned on the second);
   the total's font size shrinks; and the footer buttons go full-width,
   stacked. At any width, long product names wrap onto at most two lines

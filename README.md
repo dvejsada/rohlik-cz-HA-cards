@@ -39,29 +39,90 @@ spending analytics, all rendered natively with your dashboard theme.
 
 ## Cards
 
-| Custom element              | Card            | Docs                                                    |
-|------------------------------|-----------------|----------------------------------------------------------|
-| `rohlik-delivery-card`       | Next Delivery   | [docs/cards/delivery-card.md](docs/cards/delivery-card.md) |
-| `rohlik-delivery-badge`      | Delivery badge  | [docs/cards/delivery-card.md#badge](docs/cards/delivery-card.md#badge--rohlik-delivery-badge) |
-| `rohlik-cart-card`           | Shopping Cart   | [docs/cards/cart-card.md](docs/cards/cart-card.md) |
-| `rohlik-slots-card`          | Delivery Slots  | [docs/cards/slots-card.md](docs/cards/slots-card.md) |
-| `rohlik-account-card`        | Account         | [docs/cards/account-card.md](docs/cards/account-card.md) |
-| `rohlik-spending-card`       | Spending        | [docs/cards/spending-card.md](docs/cards/spending-card.md) |
+Every card takes a single `device` option: pick your Rohlík.cz account in the visual
+editor and the card finds its entities itself, no entity IDs needed. All cards speak
+Czech and English (`language: auto` follows your Home Assistant profile), use only your
+theme's colours, adapt to their own width on phones, and show an "updated N min ago"
+footer that turns amber when the integration stops refreshing.
 
-<table>
-  <tr>
-    <td><img src="docs/images/delivery-card.png" alt="Next Delivery card" width="420"></td>
-    <td><img src="docs/images/cart-card.png" alt="Shopping Cart card" width="420"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/slots-card.png" alt="Delivery Slots card" width="420"></td>
-    <td><img src="docs/images/account-card.png" alt="Account card" width="420"></td>
-  </tr>
-  <tr>
-    <td><img src="docs/images/spending-card.png" alt="Spending card" width="420"></td>
-    <td><img src="docs/images/delivery-badge.png" alt="Delivery badge" width="420"></td>
-  </tr>
-</table>
+The renders below come from the bundled preview harness with sample data
+(`npm run screenshots`); the layout and copy are exactly what the cards produce.
+
+### Next Delivery — `rohlik-delivery-card`
+
+<img src="docs/images/delivery-card.png" alt="Next Delivery card while the courier is on the way" width="480">
+
+One card, four states. **Ordered**: the delivery window with a countdown. **On the
+way**: the live ETA as the headline, a progress track across the window, the courier's
+announcement and the order summary. **Delivered**: the last order and an "order again"
+link. **No order**: the nearest available slot, reserved-slot and express chips, and up to
+three upcoming slots with prices.
+
+<img src="docs/images/delivery-card-ordered.png" alt="Next Delivery card, ordered state" width="360"> <img src="docs/images/delivery-card-none.png" alt="Next Delivery card, no order state" width="360">
+
+A matching **badge**, `rohlik-delivery-badge`, shows the same state in one line at the
+top of a view:
+
+<img src="docs/images/delivery-badge.png" alt="Delivery badge" width="240">
+
+Options: `show_announcement`, `show_order_summary`, `show_express_chip`, `show_refresh`,
+`show_slots`, `show_shop_link`, `compact`, `tap_action`. Full reference in
+[docs/cards/delivery-card.md](docs/cards/delivery-card.md).
+
+### Shopping Cart — `rohlik-cart-card`
+
+<img src="docs/images/cart-card.png" alt="Shopping Cart card" width="480">
+
+Your live cart as product rows with a quantity stepper and remove button, the total and
+item count, and an inline search box: results float over the page, `+` or Enter adds a
+product (type `3 rohlíky` to add three), a heart limits results to favourites. The
+**Order** button opens your Rohlík.cz cart in a new tab. Set `min_order` to get an
+"Above/Below minimum" chip and how much is missing; Xtra no-limit orders count as above.
+Long carts scroll inside the card (`list_max_height`).
+
+Options: `show_search`, `group_by_category`, `show_brand`, `max_items`, `list_max_height`,
+`min_order`, `show_order_button`, `checkout_url`. Reference:
+[docs/cards/cart-card.md](docs/cards/cart-card.md).
+
+### Delivery Slots — `rohlik-slots-card`
+
+<img src="docs/images/slots-card.png" alt="Delivery Slots card" width="720">
+
+The nearest Express, Standard and Eco slots with time, window, price and a capacity bar
+that turns amber and red as a slot fills. The eye button switches on **watch mode**,
+which polls the integration's cheap `refresh_slots` action every few seconds while the
+page is visible, so the "Express available" chip flips the moment a slot opens. Tiles sit
+side by side in a wide card and stack into compact rows in a narrow one.
+
+Options: `slots`, `layout` (`auto`, `row`, `column`), `show_price`, `show_location`,
+`watch_interval`. Reference: [docs/cards/slots-card.md](docs/cards/slots-card.md).
+
+### Account — `rohlik-account-card`
+
+<img src="docs/images/account-card.png" alt="Account card" width="480">
+
+Xtra membership with days remaining, credit, reusable bags and deposit, remaining
+no-limit and free-express orders (hidden when you are not a member), Parents Club, the
+last order, and a refresh button that triggers a full integration update.
+
+Options: `stats` (which tiles, in which order), `show_footer`. Reference:
+[docs/cards/account-card.md](docs/cards/account-card.md).
+
+### Spending — `rohlik-spending-card`
+
+<img src="docs/images/spending-card.png" alt="Spending card, this year" width="720">
+
+Month, year and all-time totals with order counts and the average order value, a
+by-year chart, and a breakdown by category level or by product from the integration's
+opt-in **Spending Analytics** sensors (tap a row for units and price per unit). The
+**This month** period swaps the chart for the last twelve months, read from Home
+Assistant's long-term statistics of the monthly-spent sensor.
+
+<img src="docs/images/spending-card-month.png" alt="Spending card, this month with the monthly chart" width="720">
+
+Options: `default_period` (`month`, `year`, `all`), `default_level`, `top_n`, `chart`
+(`auto`, `years`, `months`, `none`), `show_totals`. Reference:
+[docs/cards/spending-card.md](docs/cards/spending-card.md).
 
 Quick start — add a card via **Edit dashboard → Add card → Rohlík.cz Next Delivery**,
 or in YAML:
@@ -71,9 +132,8 @@ type: custom:rohlik-delivery-card
 device: 0123456789abcdef0123456789abcdef   # your Rohlík.cz device id
 ```
 
-Every card takes a single `device: <device_id>` option — pick the Rohlík.cz device
-in the visual editor, no entity IDs required. See [docs/DESIGN.md](docs/DESIGN.md)
-for the full data contract and per-card specification.
+See [docs/DESIGN.md](docs/DESIGN.md) for the full data contract and per-card
+specification.
 
 ## Testing before publishing (sideload)
 

@@ -9,21 +9,16 @@ spending analytics, all rendered natively with your dashboard theme.
 
 ![Rohlík.cz cards overview](docs/images/overview.png)
 
-<details>
-<summary>Phone width and dark theme</summary>
-
-![Cards at phone width](docs/images/overview-mobile.png)
-![Cards in a dark theme](docs/images/overview-dark.png)
-
-</details>
-
 ## Installation
 
 ### HACS (recommended)
 
-1. In HACS, go to **Integrations → ⋮ → Custom repositories**.
-2. Add this repository's URL with category **Dashboard**.
-3. Install **Rohlík.cz Cards**, then reload your browser.
+Until the repository is listed in the HACS default store, add it as a custom repository:
+
+1. In HACS, open **⋮ → Custom repositories**.
+2. Add `https://github.com/dvejsada/rohlik-cz-HA-cards` with category **Dashboard**.
+3. Install **Rohlík.cz Cards** and reload your browser. HACS registers the
+   `/hacsfiles/rohlik-cz-HA-cards/rohlik-cards.js` resource for you.
 
 ### Manual
 
@@ -45,8 +40,8 @@ Czech and English (`language: auto` follows your Home Assistant profile), use on
 theme's colours, adapt to their own width on phones, and show an "updated N min ago"
 footer that turns amber when the integration stops refreshing.
 
-The renders below come from the bundled preview harness with sample data
-(`npm run screenshots`); the layout and copy are exactly what the cards produce.
+The renders below are produced by the bundled preview harness from the current
+build with sample data (`npm run screenshots`), so they always match the cards you get.
 
 ### Next Delivery — `rohlik-delivery-card`
 
@@ -183,10 +178,12 @@ container to try cards against a live `rohlikcz` integration while developing.
 **Preview harness.** `npm run build && npm run screenshots` loads the built
 `dist/rohlik-cards.js` in headless Chromium against a mocked `hass`
 (`docs/dev/preview/`, no live Home Assistant needed) and regenerates every PNG
-under `docs/images/`, including this README's overview. Open
+under `docs/images/` (the ones embedded in this README) and fails on any console
+error, in light and dark themes, at desktop and phone width. Open
 `docs/dev/preview/index.html` yourself (served over `http(s)`, not `file://`,
-so the module import resolves) to poke at a card live; `?lang=en`, `?theme=dark`
-and `?state=arriving|ordered|none|delivered` switch the mock's scenario.
+so the module import resolves) to poke at a card live; `?lang=en`, `?theme=dark`,
+`?state=arriving|ordered|none|delivered` and `?period=month|year|all` switch the
+mock's scenario.
 
 ## License
 

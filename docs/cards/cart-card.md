@@ -49,9 +49,11 @@ checkout_url: https://www.rohlik.cz/kosik
   "update item" action, so `−`/`+` on a line **deletes the todo item and
   re-adds it** via `rohlikcz.add_to_cart` with the new quantity. This means:
   - Pressing `−` at quantity 1 removes the line instead of going to 0.
-  - The line's `uid` **changes** after every quantity edit — the card
-    reloads the true list once the `todo` entity's state updates, so don't
-    rely on a line's `uid` staying stable across a quantity change.
+  - The line's `uid` **changes** after every quantity edit. While the edit
+    is in flight the card keeps showing the line, its recomputed price and
+    the adjusted cart total, ignores the integration's intermediate
+    refreshes (which would otherwise flash the line as removed), and
+    reloads the true list once when the edit finishes.
   - If the re-add fails (e.g. the product went out of stock), the card
     reverts to the pre-edit quantity and shows an inline error; the item
     may briefly disappear from the real cart until the reload confirms the

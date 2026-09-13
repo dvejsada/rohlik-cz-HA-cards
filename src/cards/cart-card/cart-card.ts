@@ -93,6 +93,14 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
 
   private configEntryId?: string;
   private loadedKey?: string;
+
+  /** True when a hass update asked for a reload while an edit was in flight; served once the edit ends. */
+  private reloadDeferred = false;
+
+  /** Optimistic cart total / distinct-item count shown while an edit is in flight. */
+  @state() private totalOverride: number | null = null;
+
+  @state() private itemsOverride: number | null = null;
   private searchDebounce?: ReturnType<typeof setTimeout>;
   private searchSeq = 0;
   private loadSeq = 0;
@@ -190,7 +198,41 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     const key = `${todoState.state}|${todoState.last_updated}|${cartPriceState.state}`;
     if (key === this.loadedKey) return;
     this.loadedKey = key;
+    // A quantity change is remove + add, and the integration refreshes after
+    // each step; reloading in between would flash the line (and the total)
+    // as gone. Hold the optimistic state and reload once the edit is done.
+    if (this.pendingUids.size > 0) {
+      this.reloadDeferred = true;
+      return;
+    }
     void this.loadItems();
+  }
+
+  /** Current cart total from the sensor (0 when unknown). */
+  private sensorTotal(): number {
+    const value = parseFloat(this.state("cart_price")?.state ?? "");
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  /** Current distinct-item count from the sensor, falling back to the loaded lines. */
+  private sensorItems(): number {
+    const attr = this.attr("cart_price", "Total items");
+    return typeof attr === "number" ? attr : this.lines.length;
+  }
+
+  /** Ends an in-flight edit: clears the optimistic overrides and serves a deferred reload. */
+  private finishEdit(uid: string): void {
+    const next = new Set(this.pendingUids);
+    next.delete(uid);
+    this.pendingUids = next;
+    if (next.size === 0) {
+      this.totalOverride = null;
+      this.itemsOverride = null;
+      if (this.reloadDeferred) {
+        this.reloadDeferred = false;
+        void this.loadItems();
+      }
+    }
   }
 
   private async ensureConfigEntryId(): Promise<string | undefined> {
@@ -229,8 +271,11 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     if (!entityId || this.pendingUids.has(uid)) return;
 
     const previousLines = this.lines;
+    const removed = this.lines.find((line) => line.uid === uid);
     this.pendingUids = new Set(this.pendingUids).add(uid);
     this.lines = this.lines.filter((line) => line.uid !== uid);
+    this.totalOverride = Math.max(0, (this.totalOverride ?? this.sensorTotal()) - (removed?.price ?? 0));
+    this.itemsOverride = Math.max(0, (this.itemsOverride ?? this.sensorItems()) - 1);
     this.error = null;
     try {
       await this.hass.callService("todo", "remove_item", { item: uid }, { entity_id: entityId });
@@ -238,9 +283,7 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
       this.lines = previousLines;
       this.error = this.t("action_error");
     } finally {
-      const next = new Set(this.pendingUids);
-      next.delete(uid);
-      this.pendingUids = next;
+      this.finishEdit(uid);
     }
   }
 
@@ -255,8 +298,13 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     if (!entityId || line.productId === undefined) return;
 
     const previousLines = this.lines;
+    const unitPrice = line.quantity > 0 ? line.price / line.quantity : 0;
+    const newPrice = Math.round(unitPrice * newQuantity * 100) / 100;
     this.pendingUids = new Set(this.pendingUids).add(line.uid);
-    this.lines = this.lines.map((l) => (l.uid === line.uid ? { ...l, quantity: newQuantity } : l));
+    this.lines = this.lines.map((l) =>
+      l.uid === line.uid ? { ...l, quantity: newQuantity, price: newPrice } : l,
+    );
+    this.totalOverride = Math.max(0, (this.totalOverride ?? this.sensorTotal()) + (newPrice - line.price));
     this.error = null;
 
     try {
@@ -276,9 +324,10 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
       this.lines = previousLines;
       this.error = this.t("action_error");
     } finally {
-      const next = new Set(this.pendingUids);
-      next.delete(line.uid);
-      this.pendingUids = next;
+      // The remove succeeded but the re-add may not have: always reload at
+      // the end so the card shows the cart as it really is.
+      this.reloadDeferred = true;
+      this.finishEdit(line.uid);
     }
   }
 
@@ -447,10 +496,11 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     }
 
     const priceState = this.state("cart_price");
-    const total = priceState ? parseFloat(priceState.state) : 0;
+    const total = this.totalOverride ?? (priceState ? parseFloat(priceState.state) : 0);
     const canOrder = Boolean(this.attr("cart_price", "Can Order"));
     const totalItemsAttr = this.attr("cart_price", "Total items");
-    const totalItems = typeof totalItemsAttr === "number" ? totalItemsAttr : this.lines.length;
+    const totalItems =
+      this.itemsOverride ?? (typeof totalItemsAttr === "number" ? totalItemsAttr : this.lines.length);
     const isEmpty = this.lines.length === 0;
 
     const showSearch = this.config.show_search !== false;

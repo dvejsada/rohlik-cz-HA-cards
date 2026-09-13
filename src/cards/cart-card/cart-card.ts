@@ -28,6 +28,8 @@ export interface CartCardConfig extends RohlikCardConfig {
   group_by_category?: boolean;
   show_brand?: boolean;
   max_items?: number;
+  /** Max height of the item list in px before it scrolls; 0 = unlimited. */
+  list_max_height?: number;
   show_order_button?: boolean;
   checkout_url?: string;
 }
@@ -50,7 +52,8 @@ interface SearchAndAddResponse {
   added_to_cart?: unknown;
 }
 
-const DEFAULT_MAX_ITEMS = 6;
+const DEFAULT_MAX_ITEMS = 0; // 0 = show every line; the list scrolls instead
+const DEFAULT_LIST_MAX_HEIGHT = 360;
 const SEARCH_DEBOUNCE_MS = 400;
 const SEARCH_MIN_CHARS = 2;
 
@@ -106,7 +109,9 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   }
 
   getGridOptions(): LovelaceGridOptions {
-    return { columns: 12, rows: 4, min_columns: 6, min_rows: 3 };
+    // Content-sized in the sections layout: the card grows with the cart and
+    // the list scrolls once it hits list_max_height, so nothing is cut off.
+    return { columns: 12, rows: "auto", min_columns: 6 };
   }
 
   public disconnectedCallback(): void {
@@ -605,11 +610,14 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   }
 
   private renderLines(grouped: boolean, showBrand: boolean, maxItems: number): TemplateResult {
-    const visibleLines = this.expanded ? this.lines : this.lines.slice(0, maxItems);
-    const showToggle = this.lines.length > maxItems;
+    const limit = maxItems > 0 ? maxItems : this.lines.length;
+    const visibleLines = this.expanded ? this.lines : this.lines.slice(0, limit);
+    const showToggle = this.lines.length > limit;
+    const maxHeight = this.config.list_max_height ?? DEFAULT_LIST_MAX_HEIGHT;
+    const listStyle = maxHeight > 0 ? { maxHeight: `${maxHeight}px` } : {};
 
     return html`
-      <div class="lines">
+      <div class="lines" style=${styleMap(listStyle)}>
         ${grouped
           ? repeat(
               groupByCategory(visibleLines),

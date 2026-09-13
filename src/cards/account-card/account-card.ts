@@ -68,7 +68,7 @@ export class RohlikAccountCard extends RohlikBaseCard<AccountCardConfig> {
   }
 
   public getGridOptions(): LovelaceGridOptions {
-    return { columns: 6, rows: "auto", min_columns: 4 };
+    return { columns: 6, rows: 5, min_columns: 4, min_rows: 3 };
   }
 
   private statsToShow(): AccountStat[] {

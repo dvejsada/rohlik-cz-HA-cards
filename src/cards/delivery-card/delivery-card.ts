@@ -100,7 +100,7 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
   public getGridOptions(): LovelaceGridOptions {
     return this.config?.compact
       ? { columns: 6, rows: 2, min_columns: 6, min_rows: 2 }
-      : { columns: 12, rows: "auto", min_columns: 6 };
+      : { columns: 12, rows: 6, min_columns: 6, min_rows: 3 };
   }
 
   private textState(key: string): string | null {

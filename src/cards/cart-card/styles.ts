@@ -2,6 +2,15 @@ import { css } from "lit";
 
 /** Cart-card-specific styles, layered on top of `core/styles.ts` `sharedStyles`. */
 export const cartStyles = css`
+  .adding {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 4px;
+    font-size: 13px;
+    color: var(--secondary-text-color);
+  }
+
   .lines {
     flex: 1 1 auto;
     min-height: 0;

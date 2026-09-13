@@ -103,7 +103,7 @@ export abstract class RohlikBaseCard<C extends RohlikCardConfig = RohlikCardConf
   }
 
   getGridOptions(): LovelaceGridOptions {
-    return { columns: 12, rows: "auto", min_columns: 6 };
+    return { columns: 12, rows: 4, min_columns: 6, min_rows: 2 };
   }
 
   static getStubConfig(hass: HomeAssistant): Partial<RohlikCardConfig> {

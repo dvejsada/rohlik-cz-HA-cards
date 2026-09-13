@@ -20,10 +20,9 @@ export const sharedStyles = css`
     height: 100%;
     padding: 16px;
     box-sizing: border-box;
-    /* In the sections layout the card gets an exact row count; fill it and
-       scroll inside rather than spilling past the grid cell. */
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    /* Deliberately NOT a scroll container. On touch, a scrollable card eats
+       the swipe before the dashboard view gets it, so the page stops
+       scrolling. Cards size themselves through getGridOptions() instead. */
   }
 
   .header {

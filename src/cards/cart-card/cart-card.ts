@@ -237,6 +237,24 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     }
   }
 
+  /**
+   * Height cap for the item list, in px (0 = uncapped).
+   *
+   * Always 0 on touch devices: an inner scroll region there swallows the
+   * swipe meant for the dashboard view, so the list grows instead and the
+   * page scrolls as usual.
+   */
+  private listMaxHeight(): number {
+    const configured = this.config.list_max_height ?? DEFAULT_LIST_MAX_HEIGHT;
+    if (configured <= 0) return 0;
+    try {
+      if (window.matchMedia?.("(pointer: coarse)").matches) return 0;
+    } catch {
+      // matchMedia unavailable (non-browser env): keep the configured cap.
+    }
+    return configured;
+  }
+
   private async ensureConfigEntryId(): Promise<string | undefined> {
     if (this.configEntryId) return this.configEntryId;
     const entityId = this.entityId("cart_price");
@@ -694,7 +712,7 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     const limit = maxItems > 0 ? maxItems : this.lines.length;
     const visibleLines = this.expanded ? this.lines : this.lines.slice(0, limit);
     const showToggle = this.lines.length > limit;
-    const maxHeight = this.config.list_max_height ?? DEFAULT_LIST_MAX_HEIGHT;
+    const maxHeight = this.listMaxHeight();
     const listStyle = maxHeight > 0 ? { maxHeight: `${maxHeight}px` } : {};
 
     return html`

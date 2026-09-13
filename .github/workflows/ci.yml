@@ -37,6 +37,13 @@ jobs:
             exit 1;
           }
 
+      # Catches a card turning itself into a scroll container, which on a
+      # phone swallows the swipe meant for the dashboard view.
+      - name: Scroll check (phone width)
+        run: |
+          npx --yes playwright install --with-deps chromium
+          npm run check:scroll
+
   hacs:
     runs-on: ubuntu-latest
     steps:

@@ -1,5 +1,5 @@
 import { html, nothing, type TemplateResult, type PropertyValues } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, state, query } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
@@ -11,7 +11,15 @@ import { formatMoney } from "../../core/format";
 import { sharedStyles } from "../../core/styles";
 import { cartStyles } from "./styles";
 import { strings } from "./strings";
-import { parseTodoItem, parseQuickAdd, groupByCategory, type CartLine, type TodoItemInput } from "./parse";
+import {
+  parseTodoItem,
+  parseQuickAdd,
+  groupByCategory,
+  resolveCheckoutUrl,
+  moveHighlight,
+  type CartLine,
+  type TodoItemInput,
+} from "./parse";
 import "./editor";
 
 export interface CartCardConfig extends RohlikCardConfig {
@@ -20,6 +28,8 @@ export interface CartCardConfig extends RohlikCardConfig {
   group_by_category?: boolean;
   show_brand?: boolean;
   max_items?: number;
+  show_order_button?: boolean;
+  checkout_url?: string;
 }
 
 interface SearchResult {
@@ -64,15 +74,24 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   @state() private searchResults: SearchResult[] = [];
   @state() private searching = false;
   @state() private searchError: string | null = null;
+  @state() private searchAttempted = false;
   @state() private favouriteOnly = false;
 
+  @state() private popoverOpen = false;
+  @state() private popoverRect: { left: number; top: number; width: number } | null = null;
+  @state() private highlightedIndex = -1;
+
   @state() private pendingUids: Set<string> = new Set();
+
+  @query(".search-box") private searchBoxEl?: HTMLElement;
 
   private configEntryId?: string;
   private loadedKey?: string;
   private searchDebounce?: ReturnType<typeof setTimeout>;
   private searchSeq = 0;
   private loadSeq = 0;
+  private popoverListenersAttached = false;
+  private repositionRaf?: number;
 
   public static getConfigElement(): HTMLElement {
     return document.createElement("rohlik-cart-card-editor");
@@ -93,6 +112,63 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    this.detachPopoverListeners();
+  }
+
+  // --- Search popover: position, open/close, keyboard navigation ---------
+
+  private readonly onWindowReposition = (): void => {
+    if (this.repositionRaf !== undefined) return;
+    this.repositionRaf = requestAnimationFrame(() => {
+      this.repositionRaf = undefined;
+      this.positionPopover();
+    });
+  };
+
+  private readonly onDocumentPointerDown = (ev: PointerEvent): void => {
+    if (ev.composedPath().includes(this)) return;
+    this.closePopover();
+  };
+
+  private attachPopoverListeners(): void {
+    if (this.popoverListenersAttached) return;
+    this.popoverListenersAttached = true;
+    window.addEventListener("scroll", this.onWindowReposition, true);
+    window.addEventListener("resize", this.onWindowReposition);
+    document.addEventListener("pointerdown", this.onDocumentPointerDown);
+  }
+
+  private detachPopoverListeners(): void {
+    if (!this.popoverListenersAttached) return;
+    this.popoverListenersAttached = false;
+    window.removeEventListener("scroll", this.onWindowReposition, true);
+    window.removeEventListener("resize", this.onWindowReposition);
+    document.removeEventListener("pointerdown", this.onDocumentPointerDown);
+    if (this.repositionRaf !== undefined) {
+      cancelAnimationFrame(this.repositionRaf);
+      this.repositionRaf = undefined;
+    }
+  }
+
+  private positionPopover(): void {
+    const box = this.searchBoxEl;
+    if (!box) return;
+    const rect = box.getBoundingClientRect();
+    this.popoverRect = { left: rect.left, top: rect.bottom + 4, width: rect.width };
+  }
+
+  /** Opens the popover and (re)computes its position — safe to call repeatedly. */
+  private openPopover(): void {
+    this.attachPopoverListeners();
+    this.popoverOpen = true;
+    this.positionPopover();
+  }
+
+  private closePopover(): void {
+    this.detachPopoverListeners();
+    if (!this.popoverOpen && this.highlightedIndex === -1) return;
+    this.popoverOpen = false;
+    this.highlightedIndex = -1;
   }
 
   protected willUpdate(changed: PropertyValues<this>): void {
@@ -202,23 +278,51 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     const value = (ev.target as HTMLInputElement).value;
     this.searchQuery = value;
     this.searchError = null;
+    this.highlightedIndex = -1;
     if (this.searchDebounce) clearTimeout(this.searchDebounce);
 
     const trimmed = value.trim();
     if (trimmed.length < SEARCH_MIN_CHARS) {
       this.searchResults = [];
       this.searching = false;
+      this.searchAttempted = false;
+      this.closePopover();
       return;
     }
+    this.openPopover();
     this.searchDebounce = setTimeout(() => void this.runSearch(trimmed), SEARCH_DEBOUNCE_MS);
+  };
+
+  private onSearchFocus = (): void => {
+    if (this.searchQuery.trim().length >= SEARCH_MIN_CHARS) this.openPopover();
   };
 
   private onSearchKeydown = (ev: KeyboardEvent): void => {
     if (ev.key === "Escape") {
+      if (this.popoverOpen) ev.preventDefault();
       this.clearSearch();
       return;
     }
+    if (ev.key === "ArrowDown") {
+      if (!this.popoverOpen || !this.searchResults.length) return;
+      ev.preventDefault();
+      this.highlightedIndex = moveHighlight(this.highlightedIndex, 1, this.searchResults.length);
+      return;
+    }
+    if (ev.key === "ArrowUp") {
+      if (!this.popoverOpen || !this.searchResults.length) return;
+      ev.preventDefault();
+      this.highlightedIndex = moveHighlight(this.highlightedIndex, -1, this.searchResults.length);
+      return;
+    }
     if (ev.key === "Enter") {
+      ev.preventDefault();
+      const highlighted =
+        this.highlightedIndex >= 0 ? this.searchResults[this.highlightedIndex] : undefined;
+      if (highlighted) {
+        void this.addSearchResult(highlighted);
+        return;
+      }
       void this.searchAndAdd();
     }
   };
@@ -239,10 +343,15 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
       );
       if (seq !== this.searchSeq) return;
       this.searchResults = response?.search_results ?? [];
+      this.highlightedIndex = -1;
+      this.searchAttempted = true;
+      if (this.searchQuery.trim().length >= SEARCH_MIN_CHARS) this.openPopover();
     } catch {
       if (seq !== this.searchSeq) return;
       this.searchResults = [];
       this.searchError = this.t("search_error");
+      this.searchAttempted = true;
+      if (this.searchQuery.trim().length >= SEARCH_MIN_CHARS) this.openPopover();
     } finally {
       if (seq === this.searchSeq) this.searching = false;
     }
@@ -307,6 +416,8 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     this.searchResults = [];
     this.searchError = null;
     this.searching = false;
+    this.searchAttempted = false;
+    this.closePopover();
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -329,6 +440,8 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     const showBrand = this.config.show_brand !== false;
     const grouped = this.config.group_by_category === true;
     const maxItems = this.config.max_items ?? DEFAULT_MAX_ITEMS;
+    const showOrderButton = this.config.show_order_button !== false;
+    const canOrderNow = canOrder && !isEmpty;
 
     return html`
       <ha-card style=${styleMap(this.accentStyle)}>
@@ -345,21 +458,44 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
           ${isEmpty ? this.t("empty_cart") : this.t("items_count", { count: totalItems })}
         </div>
         ${isEmpty ? this.renderEmptyHint() : nothing}
+        ${!isEmpty && !canOrder
+          ? html`<div class="hint minimum-hint">${this.t("below_minimum_order")}</div>`
+          : nothing}
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
         ${showSearch ? this.renderSearch() : nothing}
         ${!isEmpty ? this.renderLines(grouped, showBrand, maxItems) : nothing}
 
         <div class="footer-row">
           ${this.renderFreshness()}
-          <button
-            class="btn ghost"
-            ?disabled=${this.loading}
-            @click=${() => void this.loadItems()}
-          >
-            ${this.t("refresh")}
-          </button>
+          <div class="footer-actions">
+            <button
+              class="btn ghost"
+              ?disabled=${this.loading}
+              @click=${() => void this.loadItems()}
+            >
+              ${this.t("refresh")}
+            </button>
+            ${showOrderButton ? this.renderOrderButton(canOrderNow) : nothing}
+          </div>
         </div>
       </ha-card>
+    `;
+  }
+
+  private renderOrderButton(enabled: boolean): TemplateResult {
+    const url = resolveCheckoutUrl(this.config.checkout_url);
+    return html`
+      <a
+        class=${classMap({ btn: true, order: true, disabled: !enabled })}
+        href=${enabled ? url : nothing}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-disabled=${enabled ? nothing : "true"}
+        title=${enabled ? this.t("order_hint") : this.t("below_minimum_order")}
+      >
+        <ha-icon icon="mdi:cart-arrow-right"></ha-icon>
+        ${this.t("order")}
+      </a>
     `;
   }
 
@@ -376,10 +512,18 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
           <ha-icon icon="mdi:magnify"></ha-icon>
           <input
             type="text"
+            role="combobox"
+            aria-expanded=${this.popoverOpen ? "true" : "false"}
+            aria-controls="cart-search-listbox"
+            aria-autocomplete="list"
+            aria-activedescendant=${this.highlightedIndex >= 0
+              ? `cart-search-option-${this.highlightedIndex}`
+              : nothing}
             .value=${this.searchQuery}
             placeholder=${this.t("search_placeholder")}
             @input=${this.onSearchInput}
             @keydown=${this.onSearchKeydown}
+            @focus=${this.onSearchFocus}
           />
           ${this.searching ? this.renderSpinner() : nothing}
           <button
@@ -390,18 +534,38 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
             <ha-icon icon=${this.favouriteOnly ? "mdi:heart" : "mdi:heart-outline"}></ha-icon>
           </button>
         </div>
-        ${this.searchError ? html`<div class="error">${this.searchError}</div>` : nothing}
-        ${this.searchResults.length
-          ? html`
-              <div class="search-results">
-                ${repeat(
-                  this.searchResults,
-                  (result) => result.id,
-                  (result) => this.renderSearchResult(result),
-                )}
-              </div>
-            `
-          : nothing}
+        ${this.popoverOpen ? this.renderSearchPopover() : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Floats over the page instead of pushing card content — `position: fixed`,
+   * positioned from the search box's own `getBoundingClientRect()` and kept
+   * in sync on scroll/resize while open (see `positionPopover`).
+   */
+  private renderSearchPopover(): TemplateResult {
+    const style = this.popoverRect
+      ? {
+          left: `${this.popoverRect.left}px`,
+          top: `${this.popoverRect.top}px`,
+          width: `${this.popoverRect.width}px`,
+        }
+      : { display: "none" };
+
+    return html`
+      <div id="cart-search-listbox" class="search-popover" role="listbox" style=${styleMap(style)}>
+        ${this.searchError
+          ? html`<div class="popover-error">${this.searchError}</div>`
+          : this.searchResults.length
+            ? repeat(
+                this.searchResults,
+                (result) => result.id,
+                (result, index) => this.renderSearchResult(result, index),
+              )
+            : this.searchAttempted && !this.searching
+              ? html`<div class="popover-empty">${this.t("no_results")}</div>`
+              : nothing}
       </div>
     `;
   }
@@ -413,10 +577,17 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     return html`<div class="spinner"></div>`;
   }
 
-  private renderSearchResult(result: SearchResult): TemplateResult {
+  private renderSearchResult(result: SearchResult, index: number): TemplateResult {
     const secondary = [result.brand, result.amount].filter(Boolean).join(" · ");
+    const highlighted = index === this.highlightedIndex;
     return html`
-      <div class="row search-result">
+      <div
+        id="cart-search-option-${index}"
+        class=${classMap({ row: true, "search-result": true, highlighted })}
+        role="option"
+        aria-selected=${highlighted ? "true" : "false"}
+        @pointerenter=${() => (this.highlightedIndex = index)}
+      >
         <div class="cell">
           <div class="name">${result.name}</div>
           ${secondary ? html`<div class="secondary">${secondary}</div>` : nothing}
@@ -482,33 +653,35 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
           <div class="name">${line.name}</div>
           ${secondary ? html`<div class="secondary">${secondary}</div>` : nothing}
         </div>
-        <div class="stepper">
+        <div class="line-end">
+          <div class="stepper">
+            <button
+              class="step-btn"
+              ?disabled=${pending}
+              title=${this.t("remove")}
+              @click=${() => void this.changeQuantity(line, line.quantity - 1)}
+            >
+              −
+            </button>
+            <span class="qty">${line.quantity}</span>
+            <button
+              class="step-btn"
+              ?disabled=${pending}
+              @click=${() => void this.changeQuantity(line, line.quantity + 1)}
+            >
+              +
+            </button>
+          </div>
+          <div class="line-price">${formatMoney(this.hass, line.price)}</div>
           <button
-            class="step-btn"
+            class="icon-btn remove"
             ?disabled=${pending}
             title=${this.t("remove")}
-            @click=${() => void this.changeQuantity(line, line.quantity - 1)}
+            @click=${() => void this.removeItem(line.uid)}
           >
-            −
-          </button>
-          <span class="qty">${line.quantity}</span>
-          <button
-            class="step-btn"
-            ?disabled=${pending}
-            @click=${() => void this.changeQuantity(line, line.quantity + 1)}
-          >
-            +
+            <ha-icon icon="mdi:close"></ha-icon>
           </button>
         </div>
-        <div class="line-price">${formatMoney(this.hass, line.price)}</div>
-        <button
-          class="icon-btn remove"
-          ?disabled=${pending}
-          title=${this.t("remove")}
-          @click=${() => void this.removeItem(line.uid)}
-        >
-          <ha-icon icon="mdi:close"></ha-icon>
-        </button>
       </div>
     `;
   }

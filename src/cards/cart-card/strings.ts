@@ -17,6 +17,10 @@ export const strings: Dict = {
     action_error: "Akci se nepodařilo dokončit, zkuste to prosím znovu.",
     search_error: "Vyhledávání selhalo.",
     search_add_error: "Přidání do košíku selhalo.",
+    no_results: "Žádné výsledky",
+    order: "Objednat",
+    below_minimum_order: "Pod minimální hodnotou objednávky",
+    order_hint: "Otevře košík na rohlik.cz v novém okně",
   },
   en: {
     title: "Shopping cart",
@@ -34,6 +38,10 @@ export const strings: Dict = {
     action_error: "Couldn't complete that action, please try again.",
     search_error: "Search failed.",
     search_add_error: "Adding to cart failed.",
+    no_results: "No results",
+    order: "Order",
+    below_minimum_order: "Below minimum order",
+    order_hint: "Opens the cart on rohlik.cz in a new tab",
   },
 };
 
@@ -45,6 +53,8 @@ export const labels: Dict = {
     group_by_category: "Seskupit podle kategorie",
     show_brand: "Zobrazit značku",
     max_items: "Max. počet zobrazených položek",
+    show_order_button: "Tlačítko Objednat",
+    checkout_url: "Adresa košíku",
   },
   en: {
     device: "Device",
@@ -53,5 +63,7 @@ export const labels: Dict = {
     group_by_category: "Group by category",
     show_brand: "Show brand",
     max_items: "Max. items shown",
+    show_order_button: "Order button",
+    checkout_url: "Checkout URL",
   },
 };

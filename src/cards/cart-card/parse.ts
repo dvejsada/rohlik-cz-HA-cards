@@ -130,6 +130,30 @@ export interface CategoryGroup {
   lines: CartLine[];
 }
 
+/** Default Rohlík.cz checkout URL, used when `checkout_url` isn't configured. */
+export const DEFAULT_CHECKOUT_URL = "https://www.rohlik.cz/kosik";
+
+/** Resolves the checkout URL: a configured, non-blank URL, or the default. */
+export function resolveCheckoutUrl(checkoutUrl?: string): string {
+  const trimmed = checkoutUrl?.trim();
+  return trimmed ? trimmed : DEFAULT_CHECKOUT_URL;
+}
+
+/**
+ * Moves the search popover's keyboard-highlighted row index by `delta`
+ * (+1 for ArrowDown, -1 for ArrowUp) over a list of `length` rows. `-1`
+ * means "nothing highlighted"; ArrowUp from row 0 (or with nothing
+ * highlighted) deselects rather than wrapping to the end, and ArrowDown
+ * clamps at the last row instead of wrapping to the start.
+ */
+export function moveHighlight(current: number, delta: number, length: number): number {
+  if (length <= 0) return -1;
+  const next = current + delta;
+  if (next < -1) return -1;
+  if (next >= length) return length - 1;
+  return next;
+}
+
 /**
  * Groups cart lines by `category`, sorted alphabetically by category name.
  * Lines with no category are collected into one bucket at the end.

@@ -32,11 +32,19 @@ spending analytics, all rendered natively with your dashboard theme.
 | Custom element              | Card            | Docs                                                    |
 |------------------------------|-----------------|----------------------------------------------------------|
 | `rohlik-delivery-card`       | Next Delivery   | [docs/cards/delivery-card.md](docs/cards/delivery-card.md) |
-| `rohlik-delivery-badge`      | Delivery badge  | [docs/cards/delivery-badge.md](docs/cards/delivery-badge.md) |
+| `rohlik-delivery-badge`      | Delivery badge  | [docs/cards/delivery-card.md#badge](docs/cards/delivery-card.md#badge--rohlik-delivery-badge) |
 | `rohlik-cart-card`           | Shopping Cart   | [docs/cards/cart-card.md](docs/cards/cart-card.md) |
 | `rohlik-slots-card`          | Delivery Slots  | [docs/cards/slots-card.md](docs/cards/slots-card.md) |
 | `rohlik-account-card`        | Account         | [docs/cards/account-card.md](docs/cards/account-card.md) |
 | `rohlik-spending-card`       | Spending        | [docs/cards/spending-card.md](docs/cards/spending-card.md) |
+
+Quick start — add a card via **Edit dashboard → Add card → Rohlík.cz Next Delivery**,
+or in YAML:
+
+```yaml
+type: custom:rohlik-delivery-card
+device: 0123456789abcdef0123456789abcdef   # your Rohlík.cz device id
+```
 
 Every card takes a single `device: <device_id>` option — pick the Rohlík.cz device
 in the visual editor, no entity IDs required. See [docs/DESIGN.md](docs/DESIGN.md)

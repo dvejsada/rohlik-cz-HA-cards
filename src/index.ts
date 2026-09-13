@@ -1,5 +1,4 @@
 // Registers every Rohlík.cz card and badge. Each import is self-registering.
-import "./cards/placeholder/placeholder-card";
 import "./cards/delivery-card/delivery-card";
 import "./badges/delivery-badge/delivery-badge";
 import "./cards/cart-card/cart-card";

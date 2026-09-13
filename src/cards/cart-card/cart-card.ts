@@ -1,2 +1,512 @@
-// Stub: replaced by the real implementation.
-export {};
+import { html, nothing, type TemplateResult, type PropertyValues } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
+import { classMap } from "lit/directives/class-map.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { RohlikBaseCard, type RohlikCardConfig } from "../../core/base-card";
+import type { HomeAssistant, LovelaceGridOptions } from "../../core/types";
+import { registerCard } from "../../core/register";
+import { getConfigEntryId, callRohlik } from "../../core/actions";
+import { formatMoney } from "../../core/format";
+import { sharedStyles } from "../../core/styles";
+import { cartStyles } from "./styles";
+import { strings } from "./strings";
+import { parseTodoItem, parseQuickAdd, groupByCategory, type CartLine, type TodoItemInput } from "./parse";
+import "./editor";
+
+export interface CartCardConfig extends RohlikCardConfig {
+  type: "custom:rohlik-cart-card";
+  show_search?: boolean;
+  group_by_category?: boolean;
+  show_brand?: boolean;
+  max_items?: number;
+}
+
+interface SearchResult {
+  id: number;
+  name: string;
+  price: string;
+  brand?: string;
+  amount?: string;
+}
+
+interface SearchProductResponse {
+  search_results?: SearchResult[];
+}
+
+interface SearchAndAddResponse {
+  success?: boolean;
+  message?: string;
+  added_to_cart?: unknown;
+}
+
+const DEFAULT_MAX_ITEMS = 6;
+const SEARCH_DEBOUNCE_MS = 400;
+const SEARCH_MIN_CHARS = 2;
+
+/**
+ * Shopping cart card: reads live cart contents off the `shopping_cart` todo
+ * entity, lets the user tweak quantities (delete + re-add — the integration
+ * has no update-item action), remove lines, and search + add products.
+ */
+@customElement("rohlik-cart-card")
+export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
+  static styles = [sharedStyles, cartStyles];
+
+  protected readonly strings = strings;
+
+  @state() private lines: CartLine[] = [];
+  @state() private loading = false;
+  @state() private error: string | null = null;
+  @state() private expanded = false;
+
+  @state() private searchQuery = "";
+  @state() private searchResults: SearchResult[] = [];
+  @state() private searching = false;
+  @state() private searchError: string | null = null;
+  @state() private favouriteOnly = false;
+
+  @state() private pendingUids: Set<string> = new Set();
+
+  private configEntryId?: string;
+  private loadedKey?: string;
+  private searchDebounce?: ReturnType<typeof setTimeout>;
+  private searchSeq = 0;
+
+  public static getConfigElement(): HTMLElement {
+    return document.createElement("rohlik-cart-card-editor");
+  }
+
+  public static getStubConfig(hass: HomeAssistant): Partial<CartCardConfig> {
+    return { ...RohlikBaseCard.getStubConfig(hass), type: "custom:rohlik-cart-card" };
+  }
+
+  getCardSize(): number {
+    return 5;
+  }
+
+  getGridOptions(): LovelaceGridOptions {
+    return { columns: 12, rows: 4, min_columns: 6, min_rows: 3 };
+  }
+
+  protected willUpdate(changed: PropertyValues<this>): void {
+    super.willUpdate(changed);
+    if (!changed.has("hass") || !this.hass || !this.config) return;
+
+    const todoState = this.state("shopping_cart");
+    const cartPriceState = this.state("cart_price");
+    if (!todoState || !cartPriceState) return;
+
+    const key = `${todoState.state}|${todoState.last_updated}|${cartPriceState.state}`;
+    if (key === this.loadedKey) return;
+    this.loadedKey = key;
+    void this.loadItems();
+  }
+
+  private async ensureConfigEntryId(): Promise<string | undefined> {
+    if (this.configEntryId) return this.configEntryId;
+    const entityId = this.entityId("cart_price");
+    if (!entityId) return undefined;
+    this.configEntryId = await getConfigEntryId(this.hass, entityId);
+    return this.configEntryId;
+  }
+
+  private async loadItems(): Promise<void> {
+    const entityId = this.entityId("shopping_cart");
+    if (!entityId) return;
+    this.loading = true;
+    this.error = null;
+    try {
+      const result = await this.hass.callWS<{ items: TodoItemInput[] }>({
+        type: "todo/item/list",
+        entity_id: entityId,
+      });
+      this.lines = (result.items ?? [])
+        .map((item) => parseTodoItem(item))
+        .filter((line): line is CartLine => line !== null);
+    } catch {
+      this.error = this.t("load_error");
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async removeItem(uid: string): Promise<void> {
+    const entityId = this.entityId("shopping_cart");
+    if (!entityId || this.pendingUids.has(uid)) return;
+
+    const previousLines = this.lines;
+    this.pendingUids = new Set(this.pendingUids).add(uid);
+    this.lines = this.lines.filter((line) => line.uid !== uid);
+    this.error = null;
+    try {
+      await this.hass.callService("todo", "remove_item", { item: uid }, { entity_id: entityId });
+    } catch {
+      this.lines = previousLines;
+      this.error = this.t("action_error");
+    } finally {
+      const next = new Set(this.pendingUids);
+      next.delete(uid);
+      this.pendingUids = next;
+    }
+  }
+
+  private async changeQuantity(line: CartLine, newQuantity: number): Promise<void> {
+    if (this.pendingUids.has(line.uid)) return;
+    if (newQuantity <= 0) {
+      await this.removeItem(line.uid);
+      return;
+    }
+
+    const entityId = this.entityId("shopping_cart");
+    if (!entityId || line.productId === undefined) return;
+
+    const previousLines = this.lines;
+    this.pendingUids = new Set(this.pendingUids).add(line.uid);
+    this.lines = this.lines.map((l) => (l.uid === line.uid ? { ...l, quantity: newQuantity } : l));
+    this.error = null;
+
+    try {
+      await this.hass.callService(
+        "todo",
+        "remove_item",
+        { item: line.uid },
+        { entity_id: entityId },
+      );
+      const configEntryId = await this.ensureConfigEntryId();
+      if (!configEntryId) throw new Error("no config_entry_id for shopping_cart device");
+      await callRohlik(this.hass, configEntryId, "add_to_cart", {
+        product_id: line.productId,
+        quantity: newQuantity,
+      });
+    } catch {
+      this.lines = previousLines;
+      this.error = this.t("action_error");
+    } finally {
+      const next = new Set(this.pendingUids);
+      next.delete(line.uid);
+      this.pendingUids = next;
+    }
+  }
+
+  private onSearchInput = (ev: InputEvent): void => {
+    const value = (ev.target as HTMLInputElement).value;
+    this.searchQuery = value;
+    this.searchError = null;
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+
+    const trimmed = value.trim();
+    if (trimmed.length < SEARCH_MIN_CHARS) {
+      this.searchResults = [];
+      this.searching = false;
+      return;
+    }
+    this.searchDebounce = setTimeout(() => void this.runSearch(trimmed), SEARCH_DEBOUNCE_MS);
+  };
+
+  private onSearchKeydown = (ev: KeyboardEvent): void => {
+    if (ev.key === "Escape") {
+      this.clearSearch();
+      return;
+    }
+    if (ev.key === "Enter") {
+      void this.searchAndAdd();
+    }
+  };
+
+  private async runSearch(query: string): Promise<void> {
+    const configEntryId = await this.ensureConfigEntryId();
+    if (!configEntryId) return;
+
+    const seq = ++this.searchSeq;
+    this.searching = true;
+    try {
+      const response = await callRohlik<SearchProductResponse>(
+        this.hass,
+        configEntryId,
+        "search_product",
+        { product_name: query, limit: 8, favourite: this.favouriteOnly },
+        true,
+      );
+      if (seq !== this.searchSeq) return;
+      this.searchResults = response?.search_results ?? [];
+    } catch {
+      if (seq !== this.searchSeq) return;
+      this.searchResults = [];
+      this.searchError = this.t("search_error");
+    } finally {
+      if (seq === this.searchSeq) this.searching = false;
+    }
+  }
+
+  private async searchAndAdd(): Promise<void> {
+    const text = this.searchQuery.trim();
+    if (!text) return;
+
+    const configEntryId = await this.ensureConfigEntryId();
+    if (!configEntryId) return;
+
+    const { quantity, name } = parseQuickAdd(text);
+    this.searching = true;
+    this.searchError = null;
+    try {
+      const response = await callRohlik<SearchAndAddResponse>(
+        this.hass,
+        configEntryId,
+        "search_and_add_to_cart",
+        { product_name: name, quantity, favourite: this.favouriteOnly },
+        true,
+      );
+      if (response && response.success === false) {
+        this.searchError = response.message || this.t("search_add_error");
+        return;
+      }
+      this.clearSearch();
+      await this.loadItems();
+    } catch {
+      this.searchError = this.t("search_add_error");
+    } finally {
+      this.searching = false;
+    }
+  }
+
+  private async addSearchResult(result: SearchResult): Promise<void> {
+    const configEntryId = await this.ensureConfigEntryId();
+    if (!configEntryId) return;
+    const { quantity } = parseQuickAdd(this.searchQuery.trim());
+    try {
+      await callRohlik(this.hass, configEntryId, "add_to_cart", {
+        product_id: result.id,
+        quantity,
+      });
+      this.clearSearch();
+      await this.loadItems();
+    } catch {
+      this.searchError = this.t("search_add_error");
+    }
+  }
+
+  private toggleFavouriteOnly = (): void => {
+    this.favouriteOnly = !this.favouriteOnly;
+    const trimmed = this.searchQuery.trim();
+    if (trimmed.length >= SEARCH_MIN_CHARS) void this.runSearch(trimmed);
+  };
+
+  private clearSearch(): void {
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    this.searchQuery = "";
+    this.searchResults = [];
+    this.searchError = null;
+    this.searching = false;
+  }
+
+  protected render(): TemplateResult | typeof nothing {
+    if (!this.config) return nothing;
+
+    const cartEntityId = this.entityId("shopping_cart");
+    const priceEntityId = this.entityId("cart_price");
+    if (!cartEntityId || !priceEntityId) {
+      return html`<ha-card>${this.renderError(this.t("missing_entities"))}</ha-card>`;
+    }
+
+    const priceState = this.state("cart_price");
+    const total = priceState ? parseFloat(priceState.state) : 0;
+    const canOrder = Boolean(this.attr("cart_price", "Can Order"));
+    const totalItemsAttr = this.attr("cart_price", "Total items");
+    const totalItems = typeof totalItemsAttr === "number" ? totalItemsAttr : this.lines.length;
+    const isEmpty = this.lines.length === 0;
+
+    const showSearch = this.config.show_search !== false;
+    const showBrand = this.config.show_brand !== false;
+    const grouped = this.config.group_by_category === true;
+    const maxItems = this.config.max_items ?? DEFAULT_MAX_ITEMS;
+
+    return html`
+      <ha-card style=${styleMap(this.accentStyle)}>
+        <div class="header">
+          <ha-icon icon="mdi:cart"></ha-icon>
+          <span class="title">${this.config.name || this.t("title")}</span>
+          <span class="chip ${canOrder ? "ok" : "warn"}">
+            ${canOrder ? this.t("can_order") : this.t("below_minimum")}
+          </span>
+        </div>
+
+        <div class="big">${formatMoney(this.hass, Number.isFinite(total) ? total : 0)}</div>
+        <div class="caption">
+          ${isEmpty ? this.t("empty_cart") : `${totalItems} ${this.t("items")}`}
+        </div>
+        ${isEmpty ? this.renderEmptyHint() : nothing}
+        ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
+        ${showSearch ? this.renderSearch() : nothing}
+        ${!isEmpty ? this.renderLines(grouped, showBrand, maxItems) : nothing}
+
+        <div class="footer-row">
+          ${this.renderFreshness()}
+          <button
+            class="btn ghost"
+            ?disabled=${this.loading}
+            @click=${() => void this.loadItems()}
+          >
+            ${this.t("refresh")}
+          </button>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  private renderEmptyHint(): TemplateResult | typeof nothing {
+    const items = this.attr("last_order", "Items");
+    if (typeof items !== "number") return nothing;
+    return html`<div class="hint">${this.t("last_order_hint", { count: items })}</div>`;
+  }
+
+  private renderSearch(): TemplateResult {
+    return html`
+      <div class="search">
+        <div class="search-box">
+          <ha-icon icon="mdi:magnify"></ha-icon>
+          <input
+            type="text"
+            .value=${this.searchQuery}
+            placeholder=${this.t("search_placeholder")}
+            @input=${this.onSearchInput}
+            @keydown=${this.onSearchKeydown}
+          />
+          ${this.searching ? this.renderSpinner() : nothing}
+          <button
+            class=${classMap({ "icon-btn": true, active: this.favouriteOnly })}
+            title=${this.t("favourite_only")}
+            @click=${this.toggleFavouriteOnly}
+          >
+            <ha-icon icon=${this.favouriteOnly ? "mdi:heart" : "mdi:heart-outline"}></ha-icon>
+          </button>
+        </div>
+        ${this.searchError ? html`<div class="error">${this.searchError}</div>` : nothing}
+        ${this.searchResults.length
+          ? html`
+              <div class="search-results">
+                ${repeat(
+                  this.searchResults,
+                  (result) => result.id,
+                  (result) => this.renderSearchResult(result),
+                )}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
+  private renderSpinner(): TemplateResult {
+    if (customElements.get("ha-circular-progress")) {
+      return html`<ha-circular-progress indeterminate size="small"></ha-circular-progress>`;
+    }
+    return html`<div class="spinner"></div>`;
+  }
+
+  private renderSearchResult(result: SearchResult): TemplateResult {
+    const secondary = [result.brand, result.amount].filter(Boolean).join(" · ");
+    return html`
+      <div class="row search-result">
+        <div class="cell">
+          <div class="name">${result.name}</div>
+          ${secondary ? html`<div class="secondary">${secondary}</div>` : nothing}
+        </div>
+        <div class="price">${result.price}</div>
+        <button
+          class="icon-btn"
+          title=${this.t("add")}
+          @click=${() => void this.addSearchResult(result)}
+        >
+          <ha-icon icon="mdi:plus"></ha-icon>
+        </button>
+      </div>
+    `;
+  }
+
+  private renderLines(grouped: boolean, showBrand: boolean, maxItems: number): TemplateResult {
+    const visibleLines = this.expanded ? this.lines : this.lines.slice(0, maxItems);
+    const showToggle = this.lines.length > maxItems;
+
+    return html`
+      <div class="lines">
+        ${grouped
+          ? repeat(
+              groupByCategory(visibleLines),
+              (group) => group.category ?? "__uncategorised__",
+              (group) => html`
+                <div class="category-header">${group.category ?? this.t("uncategorised")}</div>
+                ${repeat(
+                  group.lines,
+                  (line) => line.uid,
+                  (line) => this.renderLine(line, showBrand),
+                )}
+              `,
+            )
+          : repeat(
+              visibleLines,
+              (line) => line.uid,
+              (line) => this.renderLine(line, showBrand),
+            )}
+      </div>
+      ${showToggle
+        ? html`
+            <button class="btn ghost show-toggle" @click=${() => (this.expanded = !this.expanded)}>
+              ${this.expanded
+                ? this.t("show_less")
+                : this.t("show_all", { count: this.lines.length })}
+            </button>
+          `
+        : nothing}
+    `;
+  }
+
+  private renderLine(line: CartLine, showBrand: boolean): TemplateResult {
+    const pending = this.pendingUids.has(line.uid);
+    const secondary = [line.category, showBrand ? line.brand : undefined]
+      .filter((value): value is string => Boolean(value))
+      .join(" · ");
+
+    return html`
+      <div class=${classMap({ row: true, "cart-line": true, pending })}>
+        <div class="cell">
+          <div class="name">${line.name}</div>
+          ${secondary ? html`<div class="secondary">${secondary}</div>` : nothing}
+        </div>
+        <div class="stepper">
+          <button
+            class="step-btn"
+            ?disabled=${pending}
+            title=${this.t("remove")}
+            @click=${() => void this.changeQuantity(line, line.quantity - 1)}
+          >
+            −
+          </button>
+          <span class="qty">${line.quantity}</span>
+          <button
+            class="step-btn"
+            ?disabled=${pending}
+            @click=${() => void this.changeQuantity(line, line.quantity + 1)}
+          >
+            +
+          </button>
+        </div>
+        <div class="line-price">${formatMoney(this.hass, line.price)}</div>
+        <button
+          class="icon-btn remove"
+          ?disabled=${pending}
+          title=${this.t("remove")}
+          @click=${() => void this.removeItem(line.uid)}
+        >
+          <ha-icon icon="mdi:close"></ha-icon>
+        </button>
+      </div>
+    `;
+  }
+}
+
+registerCard({
+  type: "rohlik-cart-card",
+  name: "Rohlík.cz Shopping Cart",
+  description: "Live cart contents, quantity steppers and product search for Rohlík.cz.",
+});

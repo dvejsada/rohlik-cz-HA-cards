@@ -24,9 +24,26 @@ export interface StorageLike {
 interface StoredMemory {
   orderId: string | number | null;
   till: string | null;
+  /**
+   * ISO of the last render that observed the order active (`endedAt` still
+   * `null`). Used to tell a record that's genuinely still active from one
+   * abandoned by a session that closed before ever seeing the order end —
+   * see `ACTIVE_STALE_MS`.
+   */
+  seenAt: string | null;
   /** `null` while the order is still active (not yet resolved into a "delivered" memory). */
   endedAt: string | null;
 }
+
+/**
+ * An active record (no `endedAt` yet) older than this — by its last-seen
+ * time, or by its delivery window's end — is treated as abandoned rather
+ * than resolved: without this, an order left active across the real
+ * delivery (app closed, reopened much later) would get stamped
+ * `endedAt = now` on the next load and show "Delivered" for the next 6h at
+ * a completely unrelated time.
+ */
+export const ACTIVE_STALE_MS = 6 * 60 * 60 * 1000;
 
 function storageKey(device: string): string {
   return `rohlik-delivery-last:${device}`;
@@ -46,6 +63,7 @@ function readStored(storage: StorageLike, device: string): StoredMemory | null {
     return {
       orderId: parsed.orderId ?? null,
       till: typeof parsed.till === "string" ? parsed.till : null,
+      seenAt: typeof parsed.seenAt === "string" ? parsed.seenAt : null,
       endedAt: typeof parsed.endedAt === "string" ? parsed.endedAt : null,
     };
   } catch {
@@ -74,18 +92,40 @@ function toMemory(stored: StoredMemory): RecentDeliveryMemory | null {
  * Records `order` as the currently active order, with no end time yet.
  * Call this on every render while `is_ordered` is on — it also overwrites
  * (and thereby implicitly clears) any previous order's memory, active or
- * resolved, so a brand new order always starts clean.
+ * resolved, so a brand new order always starts clean. `now` stamps `seenAt`
+ * (defaults to the real current time; tests pass it explicitly).
  */
 export function rememberActiveOrder(
   storage: StorageLike,
   device: string,
   order: { orderId: string | number | null; till: Date | null },
+  now: Date = new Date(),
 ): void {
   writeStored(storage, device, {
     orderId: order.orderId,
     till: order.till ? order.till.toISOString() : null,
+    seenAt: now.toISOString(),
     endedAt: null,
   });
+}
+
+/**
+ * Whether an active (`endedAt`-less) record is too old to trust as "still
+ * genuinely active" — either it hasn't been seen in a render for
+ * `ACTIVE_STALE_MS`, or its delivery window closed that long ago. A record
+ * with no `seenAt` at all (written before this field existed) is treated as
+ * stale, since there's no way to tell how old it really is.
+ */
+function isStaleActive(stored: StoredMemory, now: Date): boolean {
+  const seenAt = stored.seenAt ? new Date(stored.seenAt) : null;
+  if (!seenAt || Number.isNaN(seenAt.getTime())) return true;
+  if (now.getTime() - seenAt.getTime() > ACTIVE_STALE_MS) return true;
+
+  const till = stored.till ? new Date(stored.till) : null;
+  if (till && !Number.isNaN(till.getTime()) && now.getTime() - till.getTime() > ACTIVE_STALE_MS) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -103,14 +143,22 @@ export function loadRecentDelivery(storage: StorageLike, device: string): Recent
  * Call this on every render while `is_ordered` is off. If storage holds an
  * order that's still marked active (no end time yet — including one from a
  * previous session, if the page reloaded right as delivery happened),
- * stamps it with `now` exactly once and persists the result. If it's
- * already resolved, or nothing is stored, returns the existing memory
- * untouched.
+ * stamps it with `now` exactly once and persists the result. If that active
+ * record is stale (see `isStaleActive`/`ACTIVE_STALE_MS`) — abandoned by a
+ * session that closed before ever observing the order end — clears it and
+ * returns `null` instead, rather than resolving it into a "delivered"
+ * memory at an unrelated time. If it's already resolved, or nothing is
+ * stored, returns the existing memory untouched.
  */
 export function resolveDelivery(storage: StorageLike, device: string, now: Date): RecentDeliveryMemory | null {
   const stored = readStored(storage, device);
   if (!stored) return null;
   if (stored.endedAt) return toMemory(stored);
+
+  if (isStaleActive(stored, now)) {
+    clearMemory(storage, device);
+    return null;
+  }
 
   const resolved: StoredMemory = { ...stored, endedAt: now.toISOString() };
   writeStored(storage, device, resolved);

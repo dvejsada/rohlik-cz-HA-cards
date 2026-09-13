@@ -47,6 +47,11 @@ export class RohlikDeliveryBadge extends LitElement {
       max-width: 100%;
     }
 
+    .badge:focus-visible {
+      outline: 2px solid var(--rohlik-accent);
+      outline-offset: 2px;
+    }
+
     .icon-circle {
       display: flex;
       align-items: center;
@@ -210,6 +215,12 @@ export class RohlikDeliveryBadge extends LitElement {
     if (entityId) openMoreInfo(this, entityId);
   };
 
+  private onKeydown = (ev: KeyboardEvent): void => {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    ev.preventDefault();
+    this.onClick();
+  };
+
   protected render(): TemplateResult | typeof nothing {
     if (!this.config || !this.hass || !this.entityId("is_ordered")) return nothing;
 
@@ -224,7 +235,14 @@ export class RohlikDeliveryBadge extends LitElement {
       : this.t(`chip_${view.state}`);
 
     return html`
-      <div class="badge" style=${styleMap(hostStyle)} @click=${this.onClick}>
+      <div
+        class="badge"
+        style=${styleMap(hostStyle)}
+        @click=${this.onClick}
+        @keydown=${this.onKeydown}
+        role="button"
+        tabindex="0"
+      >
         <div class="icon-circle">
           <ha-icon icon=${view.state === "delivered" ? "mdi:check" : "mdi:truck-delivery"}></ha-icon>
         </div>

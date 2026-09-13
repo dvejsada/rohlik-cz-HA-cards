@@ -247,7 +247,7 @@ export class RohlikAccountCard extends RohlikBaseCard<AccountCardConfig> {
       month: "short",
     }).format(date);
     const parts = [`${this.t("last_order")} ${dateLabel}`];
-    if (typeof items === "number") parts.push(`${items} ${this.t("items")}`);
+    if (typeof items === "number") parts.push(this.t("items_count", { count: items }));
     if (typeof price === "number") parts.push(formatMoney(this.hass, price));
     return html`<div class="last-order">${parts.join(" · ")}</div>`;
   }

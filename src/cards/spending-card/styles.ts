@@ -69,7 +69,9 @@ export const styles = css`
   .years-chart {
     display: block;
     width: 100%;
-    height: auto;
+    max-width: 100%;
+    height: 118px;
+    max-height: 118px;
     margin-bottom: 16px;
     overflow: visible;
   }
@@ -122,6 +124,7 @@ export const styles = css`
   }
 
   .breakdown-bar-fill {
+    display: block;
     height: 100%;
     border-radius: 5px;
     background: var(--rohlik-accent);

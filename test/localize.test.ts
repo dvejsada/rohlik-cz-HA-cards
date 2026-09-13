@@ -41,3 +41,43 @@ describe("localize", () => {
     expect(localize(hassCs, coreStrings, "updated_ago", { time: "5 min" })).toContain("5 min");
   });
 });
+
+describe("localize — plural forms", () => {
+  const pluralDict: Dict = {
+    cs: { count_items: "{n} {n:položka|položky|položek}" },
+    en: { count_items: "{n} {n:item|items}" },
+  };
+
+  it.each([
+    [1, "1 položka"],
+    [2, "2 položky"],
+    [4, "4 položky"],
+    [5, "5 položek"],
+  ])("cs: %i -> %s", (n, expected) => {
+    const hass = makeHass({ locale: { language: "cs" } });
+    expect(localize(hass, pluralDict, "count_items", { n })).toBe(expected);
+  });
+
+  it.each([
+    [1, "1 item"],
+    [2, "2 items"],
+  ])("en: %i -> %s", (n, expected) => {
+    const hass = makeHass({ locale: { language: "en" } });
+    expect(localize(hass, pluralDict, "count_items", { n })).toBe(expected);
+  });
+
+  it("leaves a plural placeholder untouched when its var is missing", () => {
+    const hass = makeHass({ locale: { language: "en" } });
+    expect(localize(hass, pluralDict, "count_items", {})).toBe("{n} {n:item|items}");
+  });
+
+  it("resolves the shared items_count core string in cs and en", () => {
+    const hassCs = makeHass({ locale: { language: "cs" } });
+    const hassEn = makeHass({ locale: { language: "en" } });
+    expect(localize(hassCs, coreStrings, "items_count", { count: 1 })).toBe("1 položka");
+    expect(localize(hassCs, coreStrings, "items_count", { count: 2 })).toBe("2 položky");
+    expect(localize(hassCs, coreStrings, "items_count", { count: 5 })).toBe("5 položek");
+    expect(localize(hassEn, coreStrings, "items_count", { count: 1 })).toBe("1 item");
+    expect(localize(hassEn, coreStrings, "items_count", { count: 2 })).toBe("2 items");
+  });
+});

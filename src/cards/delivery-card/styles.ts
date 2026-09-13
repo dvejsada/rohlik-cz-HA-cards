@@ -13,6 +13,12 @@ export const deliveryCardStyles = css`
     cursor: default;
   }
 
+  .header:focus-visible,
+  .compact-row:focus-visible {
+    outline: 2px solid var(--rohlik-accent, var(--primary-color));
+    outline-offset: 2px;
+  }
+
   .chips {
     display: flex;
     align-items: center;

@@ -72,6 +72,7 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   private loadedKey?: string;
   private searchDebounce?: ReturnType<typeof setTimeout>;
   private searchSeq = 0;
+  private loadSeq = 0;
 
   public static getConfigElement(): HTMLElement {
     return document.createElement("rohlik-cart-card-editor");
@@ -87,6 +88,11 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
 
   getGridOptions(): LovelaceGridOptions {
     return { columns: 12, rows: 4, min_columns: 6, min_rows: 3 };
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
   }
 
   protected willUpdate(changed: PropertyValues<this>): void {
@@ -114,6 +120,7 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   private async loadItems(): Promise<void> {
     const entityId = this.entityId("shopping_cart");
     if (!entityId) return;
+    const seq = ++this.loadSeq;
     this.loading = true;
     this.error = null;
     try {
@@ -121,13 +128,15 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
         type: "todo/item/list",
         entity_id: entityId,
       });
+      if (seq !== this.loadSeq) return;
       this.lines = (result.items ?? [])
         .map((item) => parseTodoItem(item))
         .filter((line): line is CartLine => line !== null);
     } catch {
+      if (seq !== this.loadSeq) return;
       this.error = this.t("load_error");
     } finally {
-      this.loading = false;
+      if (seq === this.loadSeq) this.loading = false;
     }
   }
 
@@ -333,7 +342,7 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
 
         <div class="big">${formatMoney(this.hass, Number.isFinite(total) ? total : 0)}</div>
         <div class="caption">
-          ${isEmpty ? this.t("empty_cart") : `${totalItems} ${this.t("items")}`}
+          ${isEmpty ? this.t("empty_cart") : this.t("items_count", { count: totalItems })}
         </div>
         ${isEmpty ? this.renderEmptyHint() : nothing}
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}

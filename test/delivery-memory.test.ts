@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIVE_STALE_MS,
   clearMemory,
   loadRecentDelivery,
   rememberActiveOrder,
@@ -38,7 +39,7 @@ describe("loadRecentDelivery", () => {
 
   it("returns the memory once it has been resolved", () => {
     const storage = makeStorage();
-    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: TILL });
+    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: TILL }, NOW);
     resolveDelivery(storage, DEVICE, NOW);
     const memory = loadRecentDelivery(storage, DEVICE);
     expect(memory).not.toBeNull();
@@ -49,7 +50,7 @@ describe("loadRecentDelivery", () => {
 
   it("is scoped per device", () => {
     const storage = makeStorage();
-    rememberActiveOrder(storage, "dev1", { orderId: 1, till: null });
+    rememberActiveOrder(storage, "dev1", { orderId: 1, till: null }, NOW);
     resolveDelivery(storage, "dev1", NOW);
     expect(loadRecentDelivery(storage, "dev2")).toBeNull();
   });
@@ -79,7 +80,7 @@ describe("resolveDelivery", () => {
 
   it("stamps an active order with `now` and persists it", () => {
     const storage = makeStorage();
-    rememberActiveOrder(storage, DEVICE, { orderId: 42, till: TILL });
+    rememberActiveOrder(storage, DEVICE, { orderId: 42, till: TILL }, NOW);
     const memory = resolveDelivery(storage, DEVICE, NOW);
     expect(memory?.orderId).toBe(42);
     expect(memory?.endedAt.getTime()).toBe(NOW.getTime());
@@ -89,7 +90,7 @@ describe("resolveDelivery", () => {
 
   it("stamps `now` only once — a later call doesn't move endedAt", () => {
     const storage = makeStorage();
-    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: null });
+    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: null }, NOW);
     const first = resolveDelivery(storage, DEVICE, NOW);
     const muchLater = new Date(NOW.getTime() + 60 * 60 * 1000);
     const second = resolveDelivery(storage, DEVICE, muchLater);
@@ -97,22 +98,62 @@ describe("resolveDelivery", () => {
   });
 
   it("resolves an order left active by a previous session (reload right at delivery)", () => {
-    // Simulates: page closed while `is_ordered` was still on (so only the
-    // active-order marker got persisted, no endedAt yet); a fresh session
-    // loads storage and is the first to observe `is_ordered` off.
+    // Simulates: page closed while `is_ordered` was still on, shortly
+    // before delivery (so only the active-order marker got persisted, no
+    // endedAt yet, `seenAt` recent); a fresh session loads storage and is
+    // the first to observe `is_ordered` off.
     const storage = makeStorage();
-    rememberActiveOrder(storage, DEVICE, { orderId: 7, till: TILL });
+    const seenAt = new Date(NOW.getTime() - 5 * 60 * 1000);
+    rememberActiveOrder(storage, DEVICE, { orderId: 7, till: TILL }, seenAt);
     const memory = resolveDelivery(storage, DEVICE, NOW);
     expect(memory?.orderId).toBe(7);
     expect(memory?.till?.getTime()).toBe(TILL.getTime());
     expect(memory?.endedAt.getTime()).toBe(NOW.getTime());
+  });
+
+  it("clears a stale active record (unseen for longer than ACTIVE_STALE_MS) and returns null", () => {
+    // Simulates: the app was closed while `is_ordered` was on and never
+    // reopened until long after the real delivery — only the active
+    // marker is on disk, stamped with a `seenAt` far in the past.
+    const storage = makeStorage();
+    const seenAt = new Date(NOW.getTime() - ACTIVE_STALE_MS - 60_000);
+    rememberActiveOrder(storage, DEVICE, { orderId: 9, till: TILL }, seenAt);
+    expect(resolveDelivery(storage, DEVICE, NOW)).toBeNull();
+    expect(loadRecentDelivery(storage, DEVICE)).toBeNull();
+  });
+
+  it("clears a stale active record whose delivery window closed long ago, even if seenAt is recent", () => {
+    const storage = makeStorage();
+    const longAgoTill = new Date(NOW.getTime() - ACTIVE_STALE_MS - 60_000);
+    rememberActiveOrder(storage, DEVICE, { orderId: 9, till: longAgoTill }, NOW);
+    expect(resolveDelivery(storage, DEVICE, NOW)).toBeNull();
+    expect(loadRecentDelivery(storage, DEVICE)).toBeNull();
+  });
+
+  it("resolves a fresh active record normally (not stale)", () => {
+    const storage = makeStorage();
+    rememberActiveOrder(storage, DEVICE, { orderId: 10, till: TILL }, NOW);
+    const soon = new Date(NOW.getTime() + 60_000);
+    const memory = resolveDelivery(storage, DEVICE, soon);
+    expect(memory?.orderId).toBe(10);
+    expect(memory?.endedAt.getTime()).toBe(soon.getTime());
+  });
+
+  it("treats a record with no seenAt (pre-fix storage shape) as stale", () => {
+    const storage = makeStorage();
+    storage.setItem(
+      "rohlik-delivery-last:dev1",
+      JSON.stringify({ orderId: 11, till: TILL.toISOString(), endedAt: null }),
+    );
+    expect(resolveDelivery(storage, DEVICE, NOW)).toBeNull();
+    expect(loadRecentDelivery(storage, DEVICE)).toBeNull();
   });
 });
 
 describe("rememberActiveOrder", () => {
   it("overwrites a previously resolved memory, clearing it back to 'active'", () => {
     const storage = makeStorage();
-    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: TILL });
+    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: TILL }, NOW);
     resolveDelivery(storage, DEVICE, NOW);
     expect(loadRecentDelivery(storage, DEVICE)).not.toBeNull();
 
@@ -136,7 +177,7 @@ describe("rememberActiveOrder", () => {
 describe("clearMemory", () => {
   it("removes a stored memory", () => {
     const storage = makeStorage();
-    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: null });
+    rememberActiveOrder(storage, DEVICE, { orderId: 1, till: null }, NOW);
     resolveDelivery(storage, DEVICE, NOW);
     clearMemory(storage, DEVICE);
     expect(loadRecentDelivery(storage, DEVICE)).toBeNull();

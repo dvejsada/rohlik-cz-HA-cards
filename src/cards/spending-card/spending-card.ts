@@ -1,4 +1,4 @@
-import { html, nothing, type TemplateResult } from "lit";
+import { html, nothing, svg, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
@@ -221,7 +221,9 @@ export class RohlikSpendingCard extends RohlikBaseCard<SpendingCardConfig> {
               y.year === currentYear
                 ? "var(--rohlik-accent)"
                 : "color-mix(in srgb, var(--primary-text-color) 15%, transparent)";
-            return html`
+            // Children of <svg> must come from the `svg` template tag, or Lit
+            // creates them in the HTML namespace and nothing is drawn.
+            return svg`
               <rect x=${x} y=${y0} width=${CHART_BAR_W} height=${barHeight} rx="4" fill=${fill}>
                 <title>${formatMoney(this.hass, y.total)}</title>
               </rect>

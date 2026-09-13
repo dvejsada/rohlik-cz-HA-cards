@@ -161,6 +161,13 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
     if (entityId) openMoreInfo(this, entityId);
   };
 
+  private onHeaderKeydown = (ev: KeyboardEvent): void => {
+    if (this.tapDisabled) return;
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    ev.preventDefault();
+    this.onHeaderTap();
+  };
+
   private onRefresh = async (ev: Event): Promise<void> => {
     ev.stopPropagation();
     if (this.refreshing) return;
@@ -218,7 +225,9 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
       <div
         class="compact-row"
         @click=${this.onHeaderTap}
+        @keydown=${this.onHeaderKeydown}
         role=${this.tapDisabled ? nothing : "button"}
+        tabindex=${this.tapDisabled ? nothing : "0"}
       >
         <ha-icon icon="mdi:truck-delivery"></ha-icon>
         <div class="headline">
@@ -243,6 +252,9 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
       <div
         class=${classMap({ header: true, static: this.tapDisabled })}
         @click=${this.onHeaderTap}
+        @keydown=${this.onHeaderKeydown}
+        role=${this.tapDisabled ? nothing : "button"}
+        tabindex=${this.tapDisabled ? nothing : "0"}
       >
         <ha-icon icon="mdi:truck-delivery"></ha-icon>
         <span class="title">${this.config.name || this.t("title")}</span>
@@ -350,7 +362,7 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
   }
 
   private renderSummary(view: DeliveryView): TemplateResult {
-    const itemsLabel = `${view.summaryItems} ${this.t("items")}`;
+    const itemsLabel = this.t("items_count", { count: view.summaryItems ?? 0 });
     const priceLabel = view.summaryPrice != null ? formatMoney(this.hass, view.summaryPrice) : "";
     return html`<span>${[itemsLabel, priceLabel].filter(Boolean).join(" · ")}</span>`;
   }

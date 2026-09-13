@@ -3,7 +3,7 @@ import type { Dict } from "../../core/localize";
 export const strings: Dict = {
   cs: {
     title: "Účet",
-    xtra_days: "Xtra · {days} dní",
+    xtra_days: "Xtra · {days} {days:den|dny|dní}",
     no_xtra: "Bez Xtra",
     stat_credit: "Kredit",
     stat_bags: "Tašky",
@@ -21,7 +21,7 @@ export const strings: Dict = {
   },
   en: {
     title: "Account",
-    xtra_days: "Xtra · {days} days",
+    xtra_days: "Xtra · {days} {days:day|days}",
     no_xtra: "No Xtra",
     stat_credit: "Credit",
     stat_bags: "Bags",

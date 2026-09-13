@@ -9,6 +9,9 @@ import { css } from "lit";
 export const sharedStyles = css`
   :host {
     --rohlik-accent: var(--primary-color);
+    display: block;
+    /* Lets cards adapt to their own width with @container queries. */
+    container-type: inline-size;
   }
 
   ha-card {

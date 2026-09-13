@@ -15,7 +15,26 @@ export interface HaFormSchema {
 const BASE_SCHEMA: HaFormSchema[] = [
   { name: "device", required: true, selector: { device: { integration: "rohlikcz" } } },
   { name: "name", selector: { text: {} } },
+  {
+    name: "language",
+    selector: {
+      select: {
+        mode: "dropdown",
+        options: [
+          { value: "auto", label: "Auto (Home Assistant)" },
+          { value: "cs", label: "Čeština" },
+          { value: "en", label: "English" },
+        ],
+      },
+    },
+  },
 ];
+
+/** Labels for the base fields, merged under every editor's own `labels`. */
+const BASE_LABELS: Dict = {
+  cs: { device: "Zařízení (účet Rohlík.cz)", name: "Vlastní název", language: "Jazyk karty" },
+  en: { device: "Device (Rohlík.cz account)", name: "Custom name", language: "Card language" },
+};
 
 /**
  * `ha-form` wrapper shared by every card editor: device selector + optional
@@ -36,6 +55,13 @@ export abstract class RohlikBaseEditor<C extends RohlikCardConfig = RohlikCardCo
   /** Per-field label dictionary used by `computeLabel`. */
   protected abstract readonly labels: Dict;
 
+  /**
+   * Option defaults the card applies when a key is absent. They are merged
+   * into the form data so toggles show the real effective value instead of
+   * an unchecked box for an option that is actually on.
+   */
+  protected readonly defaults: Partial<C> = {};
+
   setConfig(config: C): void {
     this.config = config;
   }
@@ -45,12 +71,27 @@ export abstract class RohlikBaseEditor<C extends RohlikCardConfig = RohlikCardCo
   }
 
   private computeLabel = (schema: HaFormSchema): string => {
-    return localize(this.hass, this.labels, schema.name) || schema.name;
+    const merged: Dict = {};
+    for (const lng of new Set([...Object.keys(BASE_LABELS), ...Object.keys(this.labels)])) {
+      merged[lng] = { ...BASE_LABELS[lng], ...this.labels[lng] };
+    }
+    return localize(this.hass, merged, schema.name) || schema.name;
   };
+
+  private get formData(): Record<string, unknown> {
+    return { language: "auto", ...this.defaults, ...this.config };
+  }
 
   private onValueChanged = (ev: CustomEvent<{ value: Record<string, unknown> }>): void => {
     ev.stopPropagation();
-    fireEvent(this, "config-changed", { config: { ...this.config, ...ev.detail.value } });
+    const next: Record<string, unknown> = { ...this.config, ...ev.detail.value };
+    // Keep the stored YAML minimal: drop keys that equal the defaults and
+    // the "auto" language sentinel.
+    if (next.language === "auto" || next.language === "") delete next.language;
+    for (const [key, value] of Object.entries(this.defaults)) {
+      if (key in next && next[key] === value) delete next[key];
+    }
+    fireEvent(this, "config-changed", { config: next });
   };
 
   protected render(): TemplateResult | typeof nothing {
@@ -58,7 +99,7 @@ export abstract class RohlikBaseEditor<C extends RohlikCardConfig = RohlikCardCo
     return html`
       <ha-form
         .hass=${this.hass}
-        .data=${this.config}
+        .data=${this.formData}
         .schema=${this.schema}
         .computeLabel=${this.computeLabel}
         @value-changed=${this.onValueChanged}

@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, e.g. v0.1.0-alpha (created at the run's commit if it does not exist)"
+        required: true
+        type: string
 
 jobs:
   release:
@@ -28,7 +34,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/rohlik-cards.js
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           # Tags with a pre-release suffix (v0.1.0-alpha, v1.0.0-beta.1) are
           # published as pre-releases, which HACS hides unless "show beta" is on.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(inputs.tag || github.ref_name, '-') }}

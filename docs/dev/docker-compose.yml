@@ -1,0 +1,11 @@
+services:
+  homeassistant:
+    container_name: rohlik-cards-dev-ha
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./config:/config
+      - ../../../HA-RohlikCZ/custom_components/rohlikcz:/config/custom_components/rohlikcz
+      - ../../dist:/config/www/rohlik-cards
+    restart: unless-stopped
+    network_mode: host
+    # Use `ports: ["8123:8123"]` instead of network_mode: host on macOS/Windows.

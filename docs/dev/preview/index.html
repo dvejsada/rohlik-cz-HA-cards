@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rohlík.cz cards preview</title>
+    <style>
+      /* ---- HA theme CSS variables (light) ---- */
+      :root {
+        --primary-color: #03a9f4;
+        --accent-color: #ff9800;
+        --card-background-color: #ffffff;
+        --primary-background-color: #fafafa;
+        --primary-text-color: #212121;
+        --secondary-text-color: #727272;
+        --divider-color: rgba(0, 0, 0, 0.12);
+        --success-color: #4caf50;
+        --warning-color: #ff9800;
+        --error-color: #db4437;
+        --ha-card-border-radius: 12px;
+        --ha-card-background: var(--card-background-color);
+        --state-icon-color: #44739e;
+      }
+
+      /* ---- HA theme CSS variables (dark), toggled via body[data-theme="dark"] ---- */
+      body[data-theme="dark"] {
+        --primary-color: #03a9f4;
+        --accent-color: #ff9800;
+        --card-background-color: #1c1c1c;
+        --primary-background-color: #111111;
+        --primary-text-color: #e1e1e1;
+        --secondary-text-color: #9b9b9b;
+        --divider-color: rgba(255, 255, 255, 0.12);
+        --success-color: #4caf50;
+        --warning-color: #ffb74d;
+        --error-color: #ff6659;
+        --ha-card-border-radius: 12px;
+        --ha-card-background: var(--card-background-color);
+        --state-icon-color: #8ba5c5;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      #app {
+        width: 1000px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .badge-row {
+        display: flex;
+        padding: 4px 0 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .grid > div {
+        min-width: 0;
+      }
+
+      .span-2 {
+        grid-column: 1 / -1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="badge-row" id="rohlik-delivery-badge"></div>
+      <div class="grid">
+        <div id="rohlik-delivery-card"></div>
+        <div id="rohlik-cart-card"></div>
+        <div id="rohlik-slots-card" class="span-2"></div>
+        <div id="rohlik-account-card"></div>
+        <div id="rohlik-spending-card" class="span-2"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { installShims, installFixedClock, buildHass, DEVICE_ID, writeDeliveredMemory, clearDeliveryMemory } from "./mock-hass.js";
+
+      const params = new URLSearchParams(location.search);
+      const lang = params.get("lang") === "en" ? "en" : "cs";
+      const theme = params.get("theme") === "dark" ? "dark" : "light";
+      const state = ["arriving", "ordered", "none", "delivered"].includes(params.get("state"))
+        ? params.get("state")
+        : "arriving";
+
+      document.documentElement.lang = lang;
+      if (theme === "dark") document.body.setAttribute("data-theme", "dark");
+
+      installFixedClock();
+      installShims();
+
+      if (state === "delivered") {
+        writeDeliveredMemory();
+      } else {
+        clearDeliveryMemory();
+      }
+
+      const CARD_TAGS = [
+        "rohlik-delivery-card",
+        "rohlik-cart-card",
+        "rohlik-slots-card",
+        "rohlik-account-card",
+        "rohlik-spending-card",
+      ];
+      const BADGE_TAGS = ["rohlik-delivery-badge"];
+      const ALL_TAGS = [...CARD_TAGS, ...BADGE_TAGS];
+
+      async function main() {
+        // Registers every custom element (self-registering on import).
+        await import("../../../dist/rohlik-cards.js");
+        await Promise.all(ALL_TAGS.map((tag) => customElements.whenDefined(tag)));
+
+        const hass = buildHass({ lang, state });
+
+        const mounted = [];
+        for (const tag of CARD_TAGS) {
+          const host = document.getElementById(tag);
+          const el = document.createElement(tag);
+          el.setConfig({ type: `custom:${tag}`, device: DEVICE_ID });
+          el.hass = hass;
+          host.appendChild(el);
+          mounted.push(el);
+        }
+        for (const tag of BADGE_TAGS) {
+          const host = document.getElementById(tag);
+          const el = document.createElement(tag);
+          el.setConfig({ type: `custom:${tag}`, device: DEVICE_ID, show_name: true });
+          el.hass = hass;
+          host.appendChild(el);
+          mounted.push(el);
+        }
+
+        // Let every LitElement finish its first render pass.
+        await Promise.all(mounted.map((el) => (el.updateComplete ? el.updateComplete : Promise.resolve())));
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        window.__PREVIEW_READY__ = true;
+      }
+
+      main().catch((err) => {
+        console.error("preview init failed", err);
+        window.__PREVIEW_ERROR__ = String((err && err.stack) || err);
+      });
+    </script>
+  </body>
+</html>

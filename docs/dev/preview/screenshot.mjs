@@ -184,9 +184,6 @@ async function main() {
     {
       const { context, page, errors } = await openPreview(browser, "?lang=cs&theme=dark&state=arriving");
       allErrors.push(...errors.map((e) => `[arriving/dark] ${e}`));
-      const appHandle = await page.$("#app");
-      await appHandle.screenshot({ path: path.join(IMAGES_DIR, "overview-dark.png") });
-      console.log("  wrote overview-dark.png");
       report.push({ state: "arriving/dark", errors });
       await context.close();
     }
@@ -208,9 +205,6 @@ async function main() {
         { width: 400, height: 900 },
       );
       allErrors.push(...errors.map((e) => `[arriving/mobile] ${e}`));
-      const appHandle = await page.$("#app");
-      await appHandle.screenshot({ path: path.join(IMAGES_DIR, "overview-mobile.png") });
-      console.log("  wrote overview-mobile.png");
       report.push({ state: "arriving/mobile", errors });
       await context.close();
     }

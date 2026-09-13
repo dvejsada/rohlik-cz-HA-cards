@@ -144,6 +144,9 @@
           const host = document.getElementById(tag);
           const el = document.createElement(tag);
           const config = { type: `custom:${tag}`, device: DEVICE_ID };
+          if (tag === "rohlik-cart-card") {
+            config.min_order = 749;
+          }
           if (tag === "rohlik-spending-card" && period) {
             config.default_period = period;
           }

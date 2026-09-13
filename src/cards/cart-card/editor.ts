@@ -10,6 +10,7 @@ export interface CartCardConfig extends RohlikCardConfig {
   show_brand?: boolean;
   max_items?: number;
   list_max_height?: number;
+  min_order?: number;
   show_order_button?: boolean;
   checkout_url?: string;
 }
@@ -24,6 +25,7 @@ export class RohlikCartCardEditor extends RohlikBaseEditor<CartCardConfig> {
     group_by_category: false,
     max_items: 0,
     list_max_height: 360,
+    min_order: 0,
     show_order_button: true,
   };
 
@@ -34,6 +36,7 @@ export class RohlikCartCardEditor extends RohlikBaseEditor<CartCardConfig> {
       { name: "show_brand", selector: { boolean: {} } },
       { name: "max_items", selector: { number: { min: 0, max: 50, mode: "box" } } },
       { name: "list_max_height", selector: { number: { min: 0, max: 2000, step: 10, mode: "box", unit_of_measurement: "px" } } },
+      { name: "min_order", selector: { number: { min: 0, max: 5000, step: 10, mode: "box", unit_of_measurement: "Kč" } } },
       { name: "show_order_button", selector: { boolean: {} } },
       { name: "checkout_url", selector: { text: {} } },
     ];

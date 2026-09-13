@@ -68,7 +68,7 @@ name, so entity IDs look like `sensor.dan_vejsada_cart_total` — never rely on 
 | `delivery_time`       | ISO timestamp, live ETA (falls back to slot start) | |
 | `delivery_info`       | plain text of the courier announcement | `Order Id`, `Updated At` (ISO), `Title`, `Additional Content` |
 | `last_order`          | ISO timestamp of last order | `Items`, `Price` |
-| `cart_price`          | float CZK | `Total items` (int), `Can Order` (bool) |
+| `cart_price`          | float CZK | `Total items` (int, distinct products), `Can Order` (bool; Rohlík's `submitConditionPassed`, true only when slot, address and payment are all set, so NOT a minimum-order indicator) |
 | `credit_amount`       | float CZK | |
 | `bags_amount`         | int | `Max Bags`, `Deposit Amount`, `Deposit Currency` |
 | `premium_days`        | int days | `Premium Type`, `Payment Date`, `Start Date`, `End Date` |
@@ -163,7 +163,7 @@ Icon `mdi:truck-delivery`. Tap → more-info `is_ordered`. Options: `device`, `s
 
 ### rohlik-cart-card
 
-Header: title, "Can order" / "Below minimum" chip from `cart_price.Can Order`.
+Header: title, chip "Ready to order" when `cart_price.Can Order` is true, otherwise "Above/Below minimum" judged against the `min_order` option (remaining Xtra no-limit orders count as above); no chip when neither applies.
 Big number: total price, caption "N items".
 Search box (if `show_search`): debounce 400 ms, min 2 chars, calls `search_product` limit 8,
 `favourite` from a heart toggle; results list rows with name / brand · amount / price and an

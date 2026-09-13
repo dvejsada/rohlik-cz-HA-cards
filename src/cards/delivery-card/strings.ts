@@ -23,6 +23,11 @@ export const strings: Dict = {
     announcement_updated: "Aktualizováno {time}",
     refresh_failed: "Obnovení se nezdařilo",
     no_entities: "Na tomto zařízení nebyly nalezeny entity Rohlík.cz",
+    reserved_until: "Rezervováno do {time}",
+    shop_link: "Objednat znovu na rohlik.cz",
+    slot_express: "Expres",
+    slot_standard: "Standard",
+    slot_eco: "Eko",
   },
   en: {
     title: "Next delivery",
@@ -41,6 +46,11 @@ export const strings: Dict = {
     announcement_updated: "Updated {time}",
     refresh_failed: "Refresh failed",
     no_entities: "Rohlík.cz entities not found on this device",
+    reserved_until: "Reserved until {time}",
+    shop_link: "Order again on rohlik.cz",
+    slot_express: "Express",
+    slot_standard: "Standard",
+    slot_eco: "Eco",
   },
 };
 
@@ -52,6 +62,8 @@ export const labels: Dict = {
     show_order_summary: "Zobrazit shrnutí objednávky",
     show_express_chip: "Zobrazit chip Expres",
     show_refresh: "Zobrazit tlačítko Obnovit",
+    show_slots: "Zobrazit termíny",
+    show_shop_link: "Odkaz na obchod",
     compact: "Kompaktní zobrazení",
   },
   en: {
@@ -61,6 +73,8 @@ export const labels: Dict = {
     show_order_summary: "Show order summary",
     show_express_chip: "Show express chip",
     show_refresh: "Show refresh button",
+    show_slots: "Show upcoming slots",
+    show_shop_link: "Show shop link",
     compact: "Compact layout",
   },
 };

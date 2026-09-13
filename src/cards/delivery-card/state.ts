@@ -11,6 +11,24 @@
 
 export type DeliveryStateKind = "arriving" | "ordered" | "delivered" | "none";
 
+export type DeliverySlotKey = "express" | "standard" | "eco";
+
+/** Raw per-slot data for the `express_slot`/`standard_slot`/`eco_slot` sensors. */
+export interface DeliverySlotInput {
+  key: DeliverySlotKey;
+  /** Parsed slot start; null while the sensor is `unknown`/`unavailable` (see `core/format.ts#parseTs`). */
+  start: Date | null;
+  /** The `Price` attribute (CZK, 0 = free), when known. */
+  price: number | null;
+}
+
+/** A slot with a known start time, ready to render. */
+export interface DeliverySlotView {
+  key: DeliverySlotKey;
+  start: Date;
+  price: number | null;
+}
+
 /** A "delivered" state is only shown for this long after the order ended. */
 export const DELIVERED_WINDOW_MS = 6 * 60 * 60 * 1000;
 
@@ -65,6 +83,8 @@ export interface DeliveryStateInput {
   isExpressAvailable: boolean;
   /** From `memory.ts`: the most recent order to finish (its `is_ordered` flip off), if any is remembered. Drives the "delivered" state. */
   recentDelivery?: RecentDeliveryMemory | null;
+  /** `express_slot`/`standard_slot`/`eco_slot` raw readings, in the order they should render. */
+  slots?: DeliverySlotInput[];
 }
 
 export interface DeliveryView {
@@ -90,6 +110,8 @@ export interface DeliveryView {
   isExpressAvailable: boolean;
   /** Delivery-window-end time to show as the "delivered" headline: `recentDelivery.till`, falling back to `recentDelivery.endedAt`. Null outside the "delivered" state (and when nothing is remembered). */
   deliveredAt: Date | null;
+  /** Slots with a known start time, in input order. Only meaningful in the "none" state; empty otherwise. */
+  slots: DeliverySlotView[];
 }
 
 function pad2(n: number): string {
@@ -152,6 +174,12 @@ export function computeDeliveryState(input: DeliveryStateInput, now: Date): Deli
     ? (input.recentDelivery.till ?? input.recentDelivery.endedAt)
     : null;
 
+  // Only meaningful in the "none" state, but computing it unconditionally
+  // keeps this function simple — the card only renders it there.
+  const slots: DeliverySlotView[] = (input.slots ?? [])
+    .filter((slot): slot is DeliverySlotInput & { start: Date } => slot.start != null)
+    .map((slot) => ({ key: slot.key, start: slot.start, price: slot.price ?? null }));
+
   return {
     state,
     since: input.since,
@@ -170,5 +198,30 @@ export function computeDeliveryState(input: DeliveryStateInput, now: Date): Deli
     isReserved: input.isReserved,
     isExpressAvailable: input.isExpressAvailable,
     deliveredAt,
+    slots,
   };
+}
+
+const RESERVED_UNTIL_KEY_RE = /till|until|expir|end/i;
+// "2026-09-13T17:00:00" / "2026-09-13T17:00:00Z" / "2026-09-13 17:00:00+02:00" — deliberately
+// strict so an unrelated attribute (e.g. a plain "vendor" or "sender" name) is never mistaken
+// for a timestamp just because its key matches.
+const ISO_LIKE_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+
+/**
+ * Looks for an ISO-timestamp-looking value on an attribute whose key
+ * suggests "reservation deadline" (`till`/`until`/`expir*`/`end`, case
+ * insensitive) — the `is_reserved` binary sensor's `reservationDetail`
+ * attributes vary by API response shape, so this is deliberately generic
+ * rather than reading one fixed key. Returns the first match, or null.
+ */
+export function findReservedUntil(attributes: Record<string, unknown> | null | undefined): Date | null {
+  if (!attributes) return null;
+  for (const [key, value] of Object.entries(attributes)) {
+    if (!RESERVED_UNTIL_KEY_RE.test(key)) continue;
+    if (typeof value !== "string" || !ISO_LIKE_RE.test(value)) continue;
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return null;
 }

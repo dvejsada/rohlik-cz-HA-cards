@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeDeliveryState,
+  findReservedUntil,
   DELIVERED_WINDOW_MS,
   type DeliveryStateInput,
   type RecentDeliveryMemory,
@@ -294,5 +295,82 @@ describe("computeDeliveryState — passthrough fields", () => {
     expect(view.since).toBe(since);
     expect(view.till).toBe(till);
     expect(view.eta).toBe(eta);
+  });
+});
+
+describe("computeDeliveryState — slots", () => {
+  it("keeps slots with a known start, in input order", () => {
+    const express = new Date("2026-09-13T13:00:00Z");
+    const eco = new Date("2026-09-14T08:00:00Z");
+    const view = computeDeliveryState(
+      baseInput({
+        slots: [
+          { key: "express", start: express, price: 49 },
+          { key: "standard", start: null, price: 0 },
+          { key: "eco", start: eco, price: 0 },
+        ],
+      }),
+      NOW,
+    );
+    expect(view.slots).toEqual([
+      { key: "express", start: express, price: 49 },
+      { key: "eco", start: eco, price: 0 },
+    ]);
+  });
+
+  it("drops slots with no start (unknown/unavailable sensor)", () => {
+    const view = computeDeliveryState(
+      baseInput({
+        slots: [
+          { key: "express", start: null, price: null },
+          { key: "standard", start: null, price: null },
+          { key: "eco", start: null, price: null },
+        ],
+      }),
+      NOW,
+    );
+    expect(view.slots).toEqual([]);
+  });
+
+  it("is an empty array when no slots are given at all", () => {
+    expect(computeDeliveryState(baseInput(), NOW).slots).toEqual([]);
+  });
+
+  it("normalises a missing price to null", () => {
+    const start = new Date("2026-09-13T13:00:00Z");
+    const view = computeDeliveryState(
+      baseInput({ slots: [{ key: "express", start, price: undefined as unknown as null }] }),
+      NOW,
+    );
+    expect(view.slots[0].price).toBeNull();
+  });
+});
+
+describe("findReservedUntil", () => {
+  it("finds an ISO timestamp under a 'till'-like key, case-insensitively", () => {
+    expect(findReservedUntil({ ReservedTill: "2026-09-13T18:00:00Z" })).toEqual(
+      new Date("2026-09-13T18:00:00Z"),
+    );
+    expect(findReservedUntil({ expiresAt: "2026-09-13T18:30:00" })).toEqual(
+      new Date("2026-09-13T18:30:00"),
+    );
+    expect(findReservedUntil({ reservation_end: "2026-09-13 19:00:00" })).toEqual(
+      new Date("2026-09-13 19:00:00"),
+    );
+  });
+
+  it("ignores keys that merely contain 'end' as a substring match coincidence but hold non-timestamp values", () => {
+    expect(findReservedUntil({ sender: "warehouse" })).toBeNull();
+  });
+
+  it("ignores matching keys whose value isn't ISO-timestamp-looking", () => {
+    expect(findReservedUntil({ until: "soon" })).toBeNull();
+    expect(findReservedUntil({ until: 12345 })).toBeNull();
+  });
+
+  it("is null for missing/empty attributes", () => {
+    expect(findReservedUntil(null)).toBeNull();
+    expect(findReservedUntil(undefined)).toBeNull();
+    expect(findReservedUntil({})).toBeNull();
   });
 });

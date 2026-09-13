@@ -34,8 +34,10 @@ export const deliveryCardStyles = css`
   }
 
   .caption {
+    display: block;
     color: var(--secondary-text-color);
-    font-size: 0.85rem;
+    font-size: 13px;
+    margin: 0 0 4px;
   }
 
   .sub {
@@ -99,10 +101,76 @@ export const deliveryCardStyles = css`
     font-size: 0.75rem;
   }
 
+  /* Flexbox won't let a flex child's text wrap unless it can shrink below
+     its content width — the announcement row is inside .row (a flex
+     container from core/styles.ts), so give it a floor of 0 explicitly. */
+  .row .announce {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .reserved-line {
+    color: var(--secondary-text-color);
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+
+  .slots {
+    display: flex;
+    flex-direction: column;
+    margin: 4px 0;
+  }
+
+  .slot-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--divider-color);
+    font-size: 0.85rem;
+  }
+
+  .slot-row:last-child {
+    border-bottom: none;
+  }
+
+  .slot-row ha-icon {
+    color: var(--rohlik-accent, var(--primary-color));
+    --mdc-icon-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .slot-label {
+    flex: 1;
+    min-width: 0;
+    color: var(--primary-text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .slot-day {
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+  }
+
+  .slot-price {
+    font-weight: 500;
+    color: var(--primary-text-color);
+    min-width: 60px;
+    text-align: right;
+  }
+
   .actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
     margin-top: 8px;
+  }
+
+  .actions a.btn {
+    text-decoration: none;
   }
 
   ha-icon.spin {
@@ -142,5 +210,47 @@ export const deliveryCardStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* :host sets container-type: inline-size (core/styles.ts) — this queries
+     the card's own rendered width, not the viewport, so it also kicks in
+     for a narrow column in a dashboard grid, not just a phone screen. */
+  @container (max-width: 420px) {
+    .header {
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+
+    .header .chips {
+      /* Forces a wrap point right before the chips, so they always land on
+         their own line under the title instead of just shrinking it. */
+      flex-basis: 100%;
+    }
+
+    .big {
+      font-size: 26px;
+    }
+
+    .track-wrap {
+      overflow: hidden;
+    }
+
+    .announce .text {
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
+
+    .slot-label {
+      white-space: normal;
+    }
+
+    .actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .actions .btn {
+      width: 100%;
+    }
   }
 `;

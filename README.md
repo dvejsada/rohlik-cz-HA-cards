@@ -67,6 +67,30 @@ Every card takes a single `device: <device_id>` option — pick the Rohlík.cz d
 in the visual editor, no entity IDs required. See [docs/DESIGN.md](docs/DESIGN.md)
 for the full data contract and per-card specification.
 
+## Testing before publishing (sideload)
+
+You can try the cards on your own Home Assistant instance without HACS:
+
+1. Download [`dist/rohlik-cards.js`](dist/rohlik-cards.js) from this repository
+   (the **Raw** button, or `curl -L https://raw.githubusercontent.com/dvejsada/rohlik-cz-HA-cards/main/dist/rohlik-cards.js -o rohlik-cards.js`).
+2. Copy it to `<config>/www/rohlik-cards/rohlik-cards.js` on your Home Assistant host
+   (create the `www` folder if it does not exist; the Samba, SSH or File editor add-ons all work).
+3. In Home Assistant go to **Settings → Dashboards → ⋮ (top right) → Resources → Add resource**,
+   enter `/local/rohlik-cards/rohlik-cards.js?v=1` and choose **JavaScript module**.
+   (Resources are only visible when *Advanced mode* is on in your user profile.)
+4. Hard-refresh the browser (Ctrl+Shift+R / Cmd+Shift+R). The cards now appear under
+   **Add card** as *Rohlík.cz Next Delivery*, *Rohlík.cz Shopping Cart* and so on, and the
+   browser console prints a `ROHLIK-CARDS` banner with the version.
+5. To update, overwrite the file and bump the `?v=` number in the resource URL so the
+   browser does not serve the cached copy.
+
+Alternatively add this repository to HACS as a **custom repository** with category
+**Dashboard**: HACS then downloads `dist/rohlik-cards.js` straight from the default
+branch and registers the resource for you, no release needed.
+
+For development against a live integration without touching your real instance, see the
+throwaway Home Assistant container in [docs/dev/README.md](docs/dev/README.md).
+
 ## Requirements
 
 These cards require the [HA-RohlikCZ](https://github.com/dvejsada/HA-RohlikCZ)

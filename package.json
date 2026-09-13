@@ -1,7 +1,7 @@
 {
   "name": "rohlik-cards",
   "private": true,
-  "version": "0.1.0-alpha",
+  "version": "0.1.1-alpha",
   "type": "module",
   "description": "Custom Lovelace cards for the HA-RohlikCZ Home Assistant integration",
   "license": "MIT",

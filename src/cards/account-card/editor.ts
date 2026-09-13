@@ -17,6 +17,11 @@ export interface AccountCardConfig extends RohlikCardConfig {
 export class RohlikAccountCardEditor extends RohlikBaseEditor<AccountCardConfig> {
   protected readonly labels = labels;
 
+  protected readonly defaults: Partial<AccountCardConfig> = {
+    stats: ["credit", "bags", "no_limit", "free_express", "parents_club", "reusable"],
+    show_footer: true,
+  };
+
   protected extraSchema(): HaFormSchema[] {
     const l = (key: string): string => localize(this.hass, strings, key);
     return [

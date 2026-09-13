@@ -64,8 +64,6 @@ export class RohlikAccountCard extends RohlikBaseCard<AccountCardConfig> {
     return {
       ...RohlikBaseCard.getStubConfig(hass),
       type: "custom:rohlik-account-card",
-      stats: [...DEFAULT_STATS],
-      show_footer: true,
     };
   }
 
@@ -221,7 +219,7 @@ export class RohlikAccountCard extends RohlikBaseCard<AccountCardConfig> {
     return html`
       <div class="account-footer">
         ${this.renderLastOrderLine()}
-        <div class="footer-right">
+        <div class="footer-row">
           ${this.renderFreshness()}
           <button
             class="btn ghost icon-btn"

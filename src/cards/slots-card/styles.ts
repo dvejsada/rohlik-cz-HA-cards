@@ -10,25 +10,47 @@ export const slotsCardStyles = css`
     container-name: rohlik-slots;
   }
 
-  .watch-btn {
+  .header {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  .icon-toggle {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
     border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--secondary-text-color);
     cursor: pointer;
-    font: inherit;
   }
 
-  .watch-btn ha-icon {
-    --mdc-icon-size: 16px;
+  .icon-toggle ha-icon {
+    --mdc-icon-size: 20px;
   }
 
-  .watch-btn.watching {
+  .icon-toggle.on {
     color: var(--rohlik-accent);
     background: color-mix(in srgb, var(--rohlik-accent) 15%, transparent);
   }
 
   .pulse-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -67,39 +89,58 @@ export const slotsCardStyles = css`
     gap: 12px;
   }
 
-  .slots-grid.column {
+  .slots-grid.column,
+  .slots-grid.auto {
     grid-template-columns: 1fr;
   }
 
-  @container rohlik-slots (max-width: 360px) {
-    .slots-grid:not(.column) {
+  /* "auto": side by side once the card has room, one per row below that. */
+  @container rohlik-slots (min-width: 480px) {
+    .slots-grid.auto {
+      grid-template-columns: repeat(var(--rohlik-slot-count, 3), 1fr);
+    }
+  }
+
+  @media (min-width: 480px) {
+    .slots-grid.auto {
+      grid-template-columns: repeat(var(--rohlik-slot-count, 3), 1fr);
+    }
+  }
+
+  /* Explicit "row" still collapses to one column at very narrow widths. */
+  @container rohlik-slots (max-width: 359px) {
+    .slots-grid:not(.column):not(.auto) {
       grid-template-columns: 1fr;
     }
   }
 
-  @media (max-width: 360px) {
-    .slots-grid:not(.column) {
+  @media (max-width: 359px) {
+    .slots-grid:not(.column):not(.auto) {
       grid-template-columns: 1fr;
     }
   }
 
+  /*
+   * Identical anatomy for every tile, available or not, top-aligned so an
+   * "Unavailable" tile never grows taller than its neighbours: icon+label,
+   * big time, exact-window meta line, capacity bar, capacity message.
+   */
   .tile {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto auto;
+    grid-template-areas: "head" "time" "meta" "bar" "msg";
+    align-content: start;
     gap: 4px;
     padding: 10px 12px;
     border-radius: var(--ha-card-border-radius, 12px);
     background: color-mix(in srgb, var(--primary-text-color) 4%, transparent);
     min-width: 0;
-  }
-
-  .tile.muted {
-    color: var(--secondary-text-color);
-    justify-content: center;
-    align-items: flex-start;
+    min-height: 128px;
   }
 
   .tile-head {
+    grid-area: head;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -114,34 +155,38 @@ export const slotsCardStyles = css`
   }
 
   .tile-time {
-    font-size: 1.1rem;
-    font-weight: 600;
+    grid-area: time;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.25;
     color: var(--primary-text-color);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .tile-caption {
-    color: var(--secondary-text-color);
-    font-size: 0.8rem;
-  }
-
-  .tile-subtitle {
-    color: var(--secondary-text-color);
-    font-size: 0.75rem;
-  }
-
-  .tile-unavailable {
+  .tile-time.muted {
     font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--secondary-text-color);
+  }
+
+  .tile-meta {
+    grid-area: meta;
+    min-height: 1em;
+    color: var(--secondary-text-color);
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .capacity-bar {
+    grid-area: bar;
     height: 4px;
     border-radius: 2px;
     background: var(--divider-color);
     overflow: hidden;
-    margin-top: 2px;
   }
 
   .capacity-fill {
@@ -158,8 +203,55 @@ export const slotsCardStyles = css`
     background: var(--error-color, #db4437);
   }
 
-  .capacity-msg {
+  .capacity-fill.muted {
+    width: 100%;
+    background: var(--divider-color);
+  }
+
+  .capacity-bar.empty {
+    opacity: 0.6;
+  }
+
+  .tile-msg {
+    grid-area: msg;
+    min-height: 1em;
     color: var(--secondary-text-color);
     font-size: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /*
+   * "auto" layout once it drops to one tile per row: a compact list row
+   * instead of a tall tile — icon+label on the left, time+meta in the
+   * middle, the capacity bar spanning the full width underneath.
+   */
+  @container rohlik-slots (max-width: 479px) {
+    .slots-grid.auto .tile {
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto auto auto;
+      grid-template-areas: "head time" "head meta" "bar bar" "msg msg";
+      align-items: center;
+      min-height: 0;
+    }
+
+    .slots-grid.auto .tile-head {
+      align-self: center;
+    }
+  }
+
+  @media (max-width: 479px) {
+    .slots-grid.auto .tile {
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto auto auto;
+      grid-template-areas: "head time" "head meta" "bar bar" "msg msg";
+      align-items: center;
+      min-height: 0;
+    }
+
+    .slots-grid.auto .tile-head {
+      align-self: center;
+    }
   }
 `;

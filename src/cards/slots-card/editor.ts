@@ -11,12 +11,20 @@ export interface SlotsCardConfig extends RohlikCardConfig {
   show_price?: boolean;
   show_location?: boolean;
   watch_interval?: number;
-  layout?: "row" | "column";
+  layout?: "auto" | "row" | "column";
 }
 
 @customElement("rohlik-slots-card-editor")
 export class RohlikSlotsCardEditor extends RohlikBaseEditor<SlotsCardConfig> {
   protected readonly labels = labels;
+
+  protected readonly defaults: Partial<SlotsCardConfig> = {
+    slots: ["express", "standard", "eco"],
+    show_price: true,
+    show_location: true,
+    watch_interval: 15,
+    layout: "auto",
+  };
 
   protected extraSchema(): HaFormSchema[] {
     const l = (key: string): string => localize(this.hass, strings, key);
@@ -41,6 +49,7 @@ export class RohlikSlotsCardEditor extends RohlikBaseEditor<SlotsCardConfig> {
           select: {
             mode: "dropdown",
             options: [
+              { value: "auto", label: l("layout_auto") },
               { value: "row", label: l("layout_row") },
               { value: "column", label: l("layout_column") },
             ],

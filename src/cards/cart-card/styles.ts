@@ -2,6 +2,13 @@ import { css } from "lit";
 
 /** Cart-card-specific styles, layered on top of `core/styles.ts` `sharedStyles`. */
 export const cartStyles = css`
+  .lines {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
   .caption {
     color: var(--secondary-text-color);
     font-size: 0.85rem;

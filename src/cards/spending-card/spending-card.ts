@@ -4,7 +4,7 @@ import { classMap } from "lit/directives/class-map.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { repeat } from "lit/directives/repeat.js";
 import { RohlikBaseCard, type RohlikCardConfig } from "../../core/base-card";
-import type { HomeAssistant } from "../../core/types";
+import type { HomeAssistant, LovelaceGridOptions } from "../../core/types";
 import { formatMoney, lang } from "../../core/format";
 import { registerCard } from "../../core/register";
 import { sharedStyles } from "../../core/styles";
@@ -98,8 +98,8 @@ export class RohlikSpendingCard extends RohlikBaseCard<SpendingCardConfig> {
     return 6;
   }
 
-  getGridOptions() {
-    return { columns: 12, rows: 5, min_columns: 6, min_rows: 3 };
+  getGridOptions(): LovelaceGridOptions {
+    return { columns: 12, rows: "auto", min_columns: 6 };
   }
 
   private get effectivePeriod(): Period {

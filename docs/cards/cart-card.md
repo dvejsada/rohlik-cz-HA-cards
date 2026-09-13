@@ -15,7 +15,8 @@ the cart.
 | `show_search`         | boolean | `true`  | Show the product search box. |
 | `group_by_category`   | boolean | `false` | Group cart lines under small uppercase category headers. |
 | `show_brand`          | boolean | `true`  | Show the brand in each line's secondary text. |
-| `max_items`           | number  | `6`     | How many lines to show before collapsing the rest behind "Show all N". |
+| `max_items`           | number  | `0`     | Lines to show before collapsing the rest behind "Show all N"; `0` shows every line and lets the list scroll instead. |
+| `list_max_height`     | number  | `360`   | Maximum height of the item list in px; beyond that the list scrolls inside the card. `0` = unlimited. |
 | `show_order_button`   | boolean | `true`  | Show the "Order" button in the footer that opens the Rohlík.cz cart. |
 | `checkout_url`        | string  | `https://www.rohlik.cz/kosik` | URL the "Order" button opens in a new tab. |
 
@@ -27,7 +28,8 @@ device: 0123456789abcdef0123456789abcdef
 show_search: true
 group_by_category: false
 show_brand: true
-max_items: 6
+max_items: 0
+list_max_height: 360
 show_order_button: true
 checkout_url: https://www.rohlik.cz/kosik
 ```

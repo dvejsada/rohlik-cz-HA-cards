@@ -7,7 +7,7 @@ import type { HomeAssistant, LovelaceGridOptions } from "../../core/types";
 import { registerCard } from "../../core/register";
 import { sharedStyles } from "../../core/styles";
 import { getConfigEntryId, callRohlik } from "../../core/actions";
-import { formatMoney, formatRelativeDay } from "../../core/format";
+import { formatMoney, formatRelativeDay, formatTime } from "../../core/format";
 import {
   DEFAULT_SLOTS,
   SLOT_ICONS,
@@ -27,7 +27,7 @@ export interface SlotsCardConfig extends RohlikCardConfig {
   show_price?: boolean;
   show_location?: boolean;
   watch_interval?: number;
-  layout?: "row" | "column";
+  layout?: "auto" | "row" | "column";
 }
 
 const DEFAULT_WATCH_INTERVAL = 15;
@@ -62,11 +62,6 @@ export class RohlikSlotsCard extends RohlikBaseCard<SlotsCardConfig> {
     return {
       ...RohlikBaseCard.getStubConfig(hass),
       type: "custom:rohlik-slots-card",
-      slots: [...DEFAULT_SLOTS],
-      show_price: true,
-      show_location: true,
-      watch_interval: DEFAULT_WATCH_INTERVAL,
-      layout: "row",
     };
   }
 
@@ -196,24 +191,28 @@ export class RohlikSlotsCard extends RohlikBaseCard<SlotsCardConfig> {
     const expressAvailable = this.isOn("is_express_available");
     const showLocation = this.config.show_location !== false;
     const location = this.attr("first_delivery", "delivery_location");
+    const layout = this.config.layout ?? "auto";
 
     return html`
       <ha-card style=${styleMap(this.accentStyle)}>
         <div class="header">
           <ha-icon icon="mdi:calendar-clock"></ha-icon>
           <span class="title">${this.config.name || this.t("title")}</span>
-          <button
-            class=${classMap({ chip: true, neutral: !this.watching, "watch-btn": true, watching: this.watching })}
-            @click=${this.toggleWatch}
-            aria-pressed=${this.watching}
-          >
-            <ha-icon icon=${this.watching ? "mdi:eye" : "mdi:eye-outline"}></ha-icon>
-            ${this.t("watch_toggle")}
-            ${this.watching ? html`<span class="pulse-dot"></span>` : nothing}
-          </button>
-          <span class="chip ${expressAvailable ? "warn" : "neutral"}">
-            ${expressAvailable ? this.t("express_available") : this.t("no_express")}
-          </span>
+          <div class="header-actions">
+            <button
+              class=${classMap({ "icon-toggle": true, on: this.watching })}
+              @click=${this.toggleWatch}
+              aria-pressed=${this.watching}
+              aria-label=${this.t("watch_toggle")}
+              title=${this.t("watch_toggle")}
+            >
+              <ha-icon icon=${this.watching ? "mdi:eye" : "mdi:eye-outline"}></ha-icon>
+              ${this.watching ? html`<span class="pulse-dot"></span>` : nothing}
+            </button>
+            <span class="chip ${expressAvailable ? "warn" : "neutral"}">
+              ${expressAvailable ? this.t("express_available") : this.t("no_express")}
+            </span>
+          </div>
         </div>
 
         ${showLocation && typeof location === "string" && location
@@ -227,7 +226,7 @@ export class RohlikSlotsCard extends RohlikBaseCard<SlotsCardConfig> {
         ${this.pollError ? this.renderError(this.pollError) : nothing}
 
         <div
-          class=${classMap({ "slots-grid": true, column: this.config.layout === "column" })}
+          class=${classMap({ "slots-grid": true, column: layout === "column", auto: layout === "auto" })}
           style=${styleMap({ "--rohlik-slot-count": String(slots.length) })}
         >
           ${slots.map((type) => this.renderTile(type))}
@@ -241,39 +240,52 @@ export class RohlikSlotsCard extends RohlikBaseCard<SlotsCardConfig> {
   private renderTile(type: SlotType): TemplateResult {
     const slot = readSlot(type, this.state(`${type}_slot`));
     const icon = SLOT_ICONS[type];
-    const label = slot.title || this.t(`slot_${type}`);
-
-    if (!slot.available) {
-      return html`
-        <div class="tile muted">
-          <div class="tile-head"><ha-icon icon=${icon}></ha-icon><span>${label}</span></div>
-          <div class="tile-unavailable">${this.t("unavailable")}</div>
-        </div>
-      `;
-    }
+    const label = this.t(`slot_${type}`);
+    const message = slot.capacityMessage ?? slot.subtitle ?? "";
 
     return html`
       <div class="tile">
         <div class="tile-head"><ha-icon icon=${icon}></ha-icon><span>${label}</span></div>
-        <div class="tile-time">${formatRelativeDay(this.hass, slot.start as Date, {
-          today: this.t("today"),
-          tomorrow: this.t("tomorrow"),
-        })}</div>
-        ${slot.subtitle ? html`<div class="tile-subtitle">${slot.subtitle}</div>` : nothing}
-        ${this.renderPrice(slot)}
-        ${this.renderCapacity(slot)}
+        ${this.renderTileTime(slot)}
+        <div class="tile-meta">${this.renderMeta(slot)}</div>
+        ${this.renderCapacityBar(slot)}
+        <div class="tile-msg">${message}</div>
       </div>
     `;
   }
 
-  private renderPrice(slot: SlotData): TemplateResult | typeof nothing {
-    if (this.config.show_price === false || slot.price == null) return nothing;
-    const label = slot.price === 0 ? this.t("free") : formatMoney(this.hass, slot.price);
-    return html`<div class="tile-caption">${label}</div>`;
+  private renderTileTime(slot: SlotData): TemplateResult {
+    if (!slot.available || !slot.start) {
+      return html`<div class="tile-time muted">${this.t("unavailable")}</div>`;
+    }
+    return html`
+      <div class="tile-time">
+        ${formatRelativeDay(this.hass, slot.start, {
+          today: this.t("today"),
+          tomorrow: this.t("tomorrow"),
+        })}
+      </div>
+    `;
   }
 
-  private renderCapacity(slot: SlotData): TemplateResult | typeof nothing {
-    if (slot.capacityPercent == null) return nothing;
+  /** "06:00 – 07:00 · 49 Kč" meta line: exact slot window plus price/"free". */
+  private renderMeta(slot: SlotData): string {
+    if (!slot.available || !slot.start) return "";
+    const parts: string[] = [];
+    const startLabel = formatTime(this.hass, slot.start);
+    parts.push(slot.end ? `${startLabel} – ${formatTime(this.hass, slot.end)}` : startLabel);
+    if (this.config.show_price !== false && slot.price != null) {
+      parts.push(slot.price === 0 ? this.t("free") : formatMoney(this.hass, slot.price));
+    }
+    return parts.join(" · ");
+  }
+
+  private renderCapacityBar(slot: SlotData): TemplateResult {
+    if (!slot.available || slot.capacityPercent == null) {
+      return html`
+        <div class="capacity-bar empty"><div class="capacity-fill muted"></div></div>
+      `;
+    }
     const level = capacityLevel(slot.capacityPercent);
     return html`
       <div class="capacity-bar">
@@ -282,7 +294,6 @@ export class RohlikSlotsCard extends RohlikBaseCard<SlotsCardConfig> {
           style=${styleMap({ width: `${clampCapacityPercent(slot.capacityPercent)}%` })}
         ></div>
       </div>
-      ${slot.capacityMessage ? html`<div class="capacity-msg">${slot.capacityMessage}</div>` : nothing}
     `;
   }
 }

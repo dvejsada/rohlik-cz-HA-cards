@@ -15,6 +15,7 @@ export const cartStyles = css`
   }
 
   .search {
+    position: relative;
     margin: 12px 0;
   }
 
@@ -91,9 +92,43 @@ export const cartStyles = css`
     }
   }
 
-  .search-results {
-    margin-top: 4px;
-    border-top: 1px solid var(--divider-color);
+  /*
+   * Floats over the page instead of pushing the card's own layout: fixed
+   * positioning computed from the search box's own rect (see
+   * positionPopover() in cart-card.ts), so it works even inside a dialog.
+   */
+  .search-popover {
+    position: fixed;
+    max-height: min(320px, 60vh);
+    overflow-y: auto;
+    z-index: 1000;
+    box-sizing: border-box;
+    background: var(--card-background-color);
+    border: 1px solid var(--divider-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  .search-popover .row {
+    padding: 8px 10px;
+  }
+
+  .search-popover .row.highlighted {
+    background: color-mix(in srgb, var(--rohlik-accent) 14%, transparent);
+  }
+
+  .popover-error,
+  .popover-empty {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .popover-error {
+    color: var(--error-color, #db4437);
+  }
+
+  .popover-empty {
+    color: var(--secondary-text-color);
   }
 
   .row.search-result .cell {
@@ -126,9 +161,11 @@ export const cartStyles = css`
   }
 
   .cell .name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
     color: var(--primary-text-color);
   }
 
@@ -138,6 +175,12 @@ export const cartStyles = css`
     white-space: nowrap;
     color: var(--secondary-text-color);
     font-size: 0.8rem;
+  }
+
+  /* Groups the stepper/price/remove controls so they can be pulled onto
+     their own right-aligned row under the narrow container query below. */
+  .line-end {
+    display: contents;
   }
 
   .stepper {
@@ -198,6 +241,10 @@ export const cartStyles = css`
     margin-top: 8px;
   }
 
+  .minimum-hint {
+    color: var(--warning-color, #ff9800);
+  }
+
   .footer-row {
     margin-top: auto;
     padding-top: 8px;
@@ -209,5 +256,67 @@ export const cartStyles = css`
 
   .footer-row .footer {
     margin-top: 0;
+  }
+
+  .footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .btn.order {
+    text-decoration: none;
+  }
+
+  .btn.order.disabled {
+    opacity: 0.5;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  @container (max-width: 420px) {
+    .header {
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+
+    .big {
+      font-size: 26px;
+    }
+
+    .cart-line {
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+
+    .cart-line .cell {
+      flex-basis: 100%;
+    }
+
+    .line-end {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-basis: 100%;
+      justify-content: flex-end;
+    }
+
+    .footer-row {
+      flex-wrap: wrap;
+    }
+
+    .footer-row .footer {
+      flex-basis: 100%;
+    }
+
+    .footer-actions {
+      flex-basis: 100%;
+      width: 100%;
+    }
+
+    .footer-actions .btn {
+      flex: 1;
+    }
   }
 `;

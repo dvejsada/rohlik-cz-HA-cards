@@ -9,6 +9,14 @@ spending analytics, all rendered natively with your dashboard theme.
 
 ![Rohlík.cz cards overview](docs/images/overview.png)
 
+<details>
+<summary>Phone width and dark theme</summary>
+
+![Cards at phone width](docs/images/overview-mobile.png)
+![Cards in a dark theme](docs/images/overview-dark.png)
+
+</details>
+
 ## Installation
 
 ### HACS (recommended)

@@ -10,6 +10,11 @@ export const accountCardStyles = css`
     container-name: rohlik-account;
   }
 
+  .header {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -17,13 +22,13 @@ export const accountCardStyles = css`
     margin-top: 4px;
   }
 
-  @container rohlik-account (max-width: 320px) {
+  @container rohlik-account (max-width: 360px) {
     .stats-grid {
       grid-template-columns: 1fr;
     }
   }
 
-  @media (max-width: 320px) {
+  @media (max-width: 360px) {
     .stats-grid {
       grid-template-columns: 1fr;
     }
@@ -82,9 +87,8 @@ export const accountCardStyles = css`
 
   .account-footer {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    flex-direction: column;
+    gap: 4px;
     margin-top: 12px;
     padding-top: 8px;
     border-top: 1px solid var(--divider-color);
@@ -93,19 +97,16 @@ export const accountCardStyles = css`
   .last-order {
     color: var(--secondary-text-color);
     font-size: 0.75rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
-  .footer-right {
+  .footer-row {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
-    flex-shrink: 0;
   }
 
-  .footer-right .footer {
+  .footer-row .footer {
     margin-top: 0;
   }
 

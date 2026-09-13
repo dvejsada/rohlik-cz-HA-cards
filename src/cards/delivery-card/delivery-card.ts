@@ -8,7 +8,15 @@ import { registerCard } from "../../core/register";
 import { sharedStyles } from "../../core/styles";
 import { getConfigEntryId, callRohlik, openMoreInfo } from "../../core/actions";
 import { formatTime, formatMoney, formatRelativeDay, formatCountdown, parseTs } from "../../core/format";
-import { computeDeliveryState, type DeliveryOrderData, type DeliveryStateInput, type DeliveryView } from "./state";
+import {
+  computeDeliveryState,
+  findReservedUntil,
+  type DeliveryOrderData,
+  type DeliverySlotKey,
+  type DeliverySlotView,
+  type DeliveryStateInput,
+  type DeliveryView,
+} from "./state";
 import { clearMemory, getBrowserStorage, loadRecentDelivery, rememberActiveOrder, resolveDelivery, type RecentDeliveryMemory } from "./memory";
 import { deliveryCardStyles } from "./styles";
 import { strings } from "./strings";
@@ -20,6 +28,10 @@ export interface DeliveryCardConfig extends RohlikCardConfig {
   show_order_summary?: boolean;
   show_express_chip?: boolean;
   show_refresh?: boolean;
+  /** Show up to three compact upcoming-slot rows in the "no order" state. */
+  show_slots?: boolean;
+  /** Show the "Order again on rohlik.cz" link in the "delivered" state. */
+  show_shop_link?: boolean;
   compact?: boolean;
   tap_action?: string | { action?: string };
 }
@@ -29,6 +41,14 @@ const CHIP_KIND: Record<DeliveryView["state"], "ok" | "neutral"> = {
   ordered: "neutral",
   delivered: "ok",
   none: "neutral",
+};
+
+const SLOT_KEYS: readonly DeliverySlotKey[] = ["express", "standard", "eco"];
+
+const SLOT_ICON: Record<DeliverySlotKey, string> = {
+  express: "mdi:lightning-bolt",
+  standard: "mdi:truck-delivery",
+  eco: "mdi:leaf",
 };
 
 /**
@@ -141,6 +161,11 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
       isReserved: this.isOn("is_reserved"),
       isExpressAvailable: this.isOn("is_express_available"),
       recentDelivery: this.syncMemory(orderData),
+      slots: SLOT_KEYS.map((key) => ({
+        key,
+        start: parseTs(this.state(`${key}_slot`)?.state),
+        price: (this.attr(`${key}_slot`, "Price") as number | undefined) ?? null,
+      })),
     };
   }
 
@@ -247,6 +272,13 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
     const showRefresh = this.config.show_refresh !== false;
     const showSub =
       (view.state === "arriving" || view.state === "ordered") && !!view.since && !!view.till;
+    const showSlots = this.config.show_slots !== false && view.state === "none" && view.slots.length > 0;
+    const showShopLink = this.config.show_shop_link !== false && view.state === "delivered";
+    const reservedUntil =
+      view.state === "none" && view.isReserved
+        ? findReservedUntil(this.state("is_reserved")?.attributes)
+        : null;
+    const caption = this.headlineCaption(view);
 
     return html`
       <div
@@ -263,28 +295,63 @@ export class RohlikDeliveryCard extends RohlikBaseCard<DeliveryCardConfig> {
 
       <div class="headline">
         <span class="big">${this.headlineMain(view)}</span>
-        <span class="caption">${this.headlineCaption(view)}</span>
       </div>
+      ${caption ? html`<div class="caption">${caption}</div>` : nothing}
 
       ${showSub ? html`<div class="sub">${this.renderSub(view)}</div>` : nothing}
       ${view.state === "arriving" ? this.renderTrack(view) : nothing}
+      ${reservedUntil
+        ? html`<div class="reserved-line">${this.t("reserved_until", { time: formatTime(this.hass, reservedUntil) })}</div>`
+        : nothing}
+      ${showSlots ? this.renderSlots(view) : nothing}
       ${showAnnouncement ? html`<div class="row">${this.renderAnnouncement(view)}</div>` : nothing}
       ${showSummary ? html`<div class="row">${this.renderSummary(view)}</div>` : nothing}
       ${this.refreshError ? html`<div class="error">${this.refreshError}</div>` : nothing}
-      ${showRefresh
+      ${showRefresh || showShopLink
         ? html`
             <div class="actions">
-              <button class="btn ghost" ?disabled=${this.refreshing} @click=${this.onRefresh}>
-                <ha-icon
-                  icon="mdi:refresh"
-                  class=${classMap({ spin: this.refreshing })}
-                ></ha-icon>
-                ${this.t("refresh")}
-              </button>
+              ${showShopLink
+                ? html`
+                    <a class="btn ghost" href="https://www.rohlik.cz" target="_blank" rel="noopener">
+                      ${this.t("shop_link")}
+                    </a>
+                  `
+                : nothing}
+              ${showRefresh
+                ? html`
+                    <button class="btn ghost" ?disabled=${this.refreshing} @click=${this.onRefresh}>
+                      <ha-icon
+                        icon="mdi:refresh"
+                        class=${classMap({ spin: this.refreshing })}
+                      ></ha-icon>
+                      ${this.t("refresh")}
+                    </button>
+                  `
+                : nothing}
             </div>
           `
         : nothing}
       ${this.renderFreshness()}
+    `;
+  }
+
+  private renderSlots(view: DeliveryView): TemplateResult {
+    return html`<div class="slots">${view.slots.map((slot) => this.renderSlotRow(slot))}</div>`;
+  }
+
+  private renderSlotRow(slot: DeliverySlotView): TemplateResult {
+    const day = formatRelativeDay(this.hass, slot.start, {
+      today: this.t("today"),
+      tomorrow: this.t("tomorrow"),
+    });
+    const price = slot.price === 0 ? this.t("free") : slot.price != null ? formatMoney(this.hass, slot.price) : "";
+    return html`
+      <div class="slot-row">
+        <ha-icon icon=${SLOT_ICON[slot.key]}></ha-icon>
+        <span class="slot-label">${this.t(`slot_${slot.key}`)}</span>
+        <span class="slot-day">${day}</span>
+        <span class="slot-price">${price}</span>
+      </div>
     `;
   }
 

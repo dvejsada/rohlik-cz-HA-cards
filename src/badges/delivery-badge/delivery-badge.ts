@@ -5,7 +5,7 @@ import type { HassEntity, HomeAssistant, LovelaceCardConfig } from "../../core/t
 import { findRohlikDevices, resolveEntities } from "../../core/discovery";
 import { openMoreInfo } from "../../core/actions";
 import { formatRelativeDay, formatTime, parseTs } from "../../core/format";
-import { coreStrings, localize } from "../../core/localize";
+import { coreStrings, localize, withLanguage, type CardLanguage } from "../../core/localize";
 import { registerBadge } from "../../core/register";
 import { computeDeliveryState, type DeliveryOrderData, type DeliveryStateInput, type DeliveryView } from "../../cards/delivery-card/state";
 import { clearMemory, getBrowserStorage, loadRecentDelivery, rememberActiveOrder, resolveDelivery, type RecentDeliveryMemory } from "../../cards/delivery-card/memory";
@@ -18,6 +18,8 @@ export interface DeliveryBadgeConfig extends LovelaceCardConfig {
   name?: string;
   accent?: string;
   show_name?: boolean;
+  /** Badge language; unset or `auto` follows the Home Assistant UI language. */
+  language?: CardLanguage | "auto";
 }
 
 /**
@@ -32,6 +34,7 @@ export class RohlikDeliveryBadge extends LitElement {
     :host {
       --rohlik-accent: var(--primary-color);
       display: inline-flex;
+      max-width: 100%;
     }
 
     .badge {
@@ -70,6 +73,8 @@ export class RohlikDeliveryBadge extends LitElement {
 
     .text {
       display: flex;
+      flex: 1;
+      min-width: 0;
       flex-direction: column;
       overflow: hidden;
       line-height: 1.2;
@@ -94,7 +99,34 @@ export class RohlikDeliveryBadge extends LitElement {
     }
   `;
 
-  @property({ attribute: false }) public hass!: HomeAssistant;
+  private _hass!: HomeAssistant;
+
+  private _localeHass?: HomeAssistant;
+
+  /**
+   * `hass` as seen by the badge. When `config.language` is set to `cs`/`en`
+   * this is a shallow copy whose locale speaks that language, so every
+   * formatter and `t()` call follows the option without extra plumbing —
+   * same pattern as `RohlikBaseCard` (the badge doesn't extend it, since
+   * badges have a much smaller lifecycle than cards).
+   */
+  @property({ attribute: false })
+  public get hass(): HomeAssistant {
+    return this._localeHass ?? this._hass;
+  }
+
+  public set hass(value: HomeAssistant) {
+    const old = this.hass;
+    this._hass = value;
+    this._localeHass = this.applyLanguage(value);
+    this.requestUpdate("hass", old);
+  }
+
+  private applyLanguage(hass: HomeAssistant | undefined): HomeAssistant | undefined {
+    if (!hass || !this.config?.language || this.config.language === "auto") return undefined;
+    const localized = withLanguage(hass, this.config.language);
+    return localized === hass ? undefined : localized;
+  }
 
   @state() private config!: DeliveryBadgeConfig;
 
@@ -107,6 +139,7 @@ export class RohlikDeliveryBadge extends LitElement {
       );
     }
     this.config = config;
+    this._localeHass = this.applyLanguage(this._hass);
     if (this.hass) {
       this.entities = resolveEntities(this.hass, this.config.device);
     }

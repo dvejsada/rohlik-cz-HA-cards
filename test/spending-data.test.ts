@@ -3,8 +3,11 @@ import {
   LEVELS,
   availableLevels,
   barWidths,
+  breakdownPeriodFor,
+  monthlyChartSeries,
   readBreakdown,
   readByYear,
+  readMonthlyStats,
   sensorKeyFor,
 } from "../src/cards/spending-card/data";
 import type { HassEntity } from "../src/core/types";
@@ -162,6 +165,104 @@ describe("readByYear", () => {
       "2025": "not an object",
     });
     expect(result).toEqual([{ year: 2024, total: 100, orderCount: 1 }]);
+  });
+});
+
+describe("breakdownPeriodFor", () => {
+  it("maps month and year to year, and all to all", () => {
+    expect(breakdownPeriodFor("month")).toBe("year");
+    expect(breakdownPeriodFor("year")).toBe("year");
+    expect(breakdownPeriodFor("all")).toBe("all");
+  });
+});
+
+describe("readMonthlyStats", () => {
+  const entityId = "sensor.dan_vejsada_monthly_spent";
+
+  it("returns an empty array for missing/malformed responses", () => {
+    expect(readMonthlyStats(undefined, entityId)).toEqual([]);
+    expect(readMonthlyStats(null, entityId)).toEqual([]);
+    expect(readMonthlyStats({}, entityId)).toEqual([]);
+    expect(readMonthlyStats({ [entityId]: "not an array" }, entityId)).toEqual([]);
+  });
+
+  it("reads a numeric (ms epoch) start", () => {
+    const ms = Date.UTC(2026, 5, 1); // 2026-06-01
+    const result = readMonthlyStats({ [entityId]: [{ start: ms, end: ms, max: 1234.5 }] }, entityId);
+    expect(result).toEqual([{ month: new Date(ms), total: 1234.5 }]);
+  });
+
+  it("reads an ISO string start", () => {
+    const result = readMonthlyStats(
+      { [entityId]: [{ start: "2026-07-01T00:00:00Z", end: "2026-08-01T00:00:00Z", max: "987.6" }] },
+      entityId,
+    );
+    expect(result).toEqual([{ month: new Date("2026-07-01T00:00:00Z"), total: 987.6 }]);
+  });
+
+  it("drops rows with an unparsable start or non-numeric max, sorts ascending by month", () => {
+    const result = readMonthlyStats(
+      {
+        [entityId]: [
+          { start: "2026-03-01T00:00:00Z", max: 300 },
+          { start: "not a date", max: 999 },
+          { start: "2026-01-01T00:00:00Z", max: null },
+          { start: "2026-02-01T00:00:00Z", max: 200 },
+        ],
+      },
+      entityId,
+    );
+    expect(result).toEqual([
+      { month: new Date("2026-02-01T00:00:00Z"), total: 200 },
+      { month: new Date("2026-03-01T00:00:00Z"), total: 300 },
+    ]);
+  });
+
+  it("ignores rows for other entity_ids", () => {
+    const result = readMonthlyStats(
+      { "sensor.other": [{ start: "2026-01-01T00:00:00Z", max: 42 }] },
+      entityId,
+    );
+    expect(result).toEqual([]);
+  });
+});
+
+describe("monthlyChartSeries", () => {
+  it("returns 12 months ending on `now`'s month, filling gaps with 0", () => {
+    const now = new Date(2026, 8, 13); // 2026-09-13
+    const stats = [
+      { month: new Date(2026, 6, 1), total: 100 }, // July
+      { month: new Date(2026, 7, 1), total: 200 }, // August
+    ];
+    const series = monthlyChartSeries(stats, now, undefined);
+    expect(series).toHaveLength(12);
+    expect(series[0].month).toEqual(new Date(2025, 9, 1)); // 11 months before Sept 2026 => Oct 2025
+    expect(series[series.length - 1].month).toEqual(new Date(2026, 8, 1));
+    expect(series.find((p) => p.month.getTime() === new Date(2026, 6, 1).getTime())?.total).toBe(100);
+    expect(series.find((p) => p.month.getTime() === new Date(2026, 7, 1).getTime())?.total).toBe(200);
+    // Every other month (including the current one, with no live override
+    // given here) has no matching stat row -> filled with 0.
+    expect(series.filter((p) => p.total === 0)).toHaveLength(10);
+  });
+
+  it("overrides the current month's total with the live sensor state", () => {
+    const now = new Date(2026, 8, 13);
+    const stats = [{ month: new Date(2026, 8, 1), total: 50 }]; // stale/partial statistics row
+    const series = monthlyChartSeries(stats, now, 999.9);
+    expect(series[series.length - 1]).toEqual({ month: new Date(2026, 8, 1), total: 999.9 });
+  });
+
+  it("falls back to the statistics row when no live total is given", () => {
+    const now = new Date(2026, 8, 13);
+    const stats = [{ month: new Date(2026, 8, 1), total: 50 }];
+    const series = monthlyChartSeries(stats, now, undefined);
+    expect(series[series.length - 1].total).toBe(50);
+  });
+
+  it("falls back to 0 for the current month when there is neither a live total nor a stats row", () => {
+    const now = new Date(2026, 8, 13);
+    const series = monthlyChartSeries([], now, undefined);
+    expect(series[series.length - 1]).toEqual({ month: new Date(2026, 8, 1), total: 0 });
   });
 });
 

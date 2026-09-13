@@ -1,4 +1,5 @@
 import type { HomeAssistant } from "./types";
+import { lang as langOf } from "./format";
 
 export type Dict = Record<string, Record<string, string>>;
 
@@ -32,7 +33,7 @@ export function localize(
   key: string,
   vars?: Record<string, string | number>,
 ): string {
-  const lang = (hass.locale?.language || "en").slice(0, 2).toLowerCase();
+  const lang = langOf(hass).slice(0, 2).toLowerCase();
   const template = dict[lang]?.[key] ?? dict.en?.[key] ?? key;
   if (!vars) return template;
   return template.replace(
@@ -76,3 +77,18 @@ export const coreStrings: Dict = {
     free: "free",
   },
 };
+
+/** Supported card languages; `auto` (or unset) follows Home Assistant. */
+export const CARD_LANGUAGES = ["cs", "en"] as const;
+export type CardLanguage = (typeof CARD_LANGUAGES)[number];
+
+/**
+ * Returns a `hass` whose locale speaks `language`, or `hass` itself when no
+ * override applies. Used by the `language` card option so every formatter
+ * and `localize()` call sees the chosen language without extra plumbing.
+ */
+export function withLanguage(hass: HomeAssistant, language?: string): HomeAssistant {
+  if (!language || !(CARD_LANGUAGES as readonly string[]).includes(language)) return hass;
+  if (langOf(hass).slice(0, 2).toLowerCase() === language) return hass;
+  return { ...hass, language, locale: { ...(hass.locale ?? {}), language } };
+}

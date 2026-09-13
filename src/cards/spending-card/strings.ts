@@ -4,6 +4,7 @@ export const strings: Dict = {
   cs: {
     title: "Útraty",
     not_found: "Na tomto zařízení nebyly nalezeny entity Rohlík.cz",
+    period_month: "Tento měsíc",
     period_year: "Letos",
     period_all: "Celkem",
     avg_order: "průměrná objednávka",
@@ -16,10 +17,13 @@ export const strings: Dict = {
     expand_row: "{units} ks · {avg} za kus",
     enable_hint: "Rozpis zobrazíte zapnutím Analýzy útrat v nastavení integrace.",
     enriched: "obohaceno {enriched} z {total} objednávek",
+    breakdown_year_hint: "Rozpis za rok {year} (měsíční kategorie nejsou k dispozici)",
+    monthly_history_hint: "Měsíční historie vyžaduje recorder",
   },
   en: {
     title: "Spending",
     not_found: "Rohlík.cz entities not found on this device",
+    period_month: "This month",
     period_year: "This year",
     period_all: "All time",
     avg_order: "avg order",
@@ -32,6 +36,8 @@ export const strings: Dict = {
     expand_row: "{units} units · {avg} per unit",
     enable_hint: "Enable Spending Analytics in the integration options to see a breakdown.",
     enriched: "{enriched} of {total} orders enriched",
+    breakdown_year_hint: "Breakdown shown for {year} (per-month categories are not available)",
+    monthly_history_hint: "Monthly history needs the recorder",
   },
 };
 
@@ -42,7 +48,7 @@ export const labels: Dict = {
     default_period: "Výchozí období",
     default_level: "Výchozí úroveň",
     top_n: "Počet položek",
-    show_years: "Zobrazit graf let",
+    chart: "Graf",
     show_totals: "Zobrazit souhrn",
   },
   en: {
@@ -51,7 +57,7 @@ export const labels: Dict = {
     default_period: "Default period",
     default_level: "Default level",
     top_n: "Row count",
-    show_years: "Show year chart",
+    chart: "Chart",
     show_totals: "Show totals",
   },
 };

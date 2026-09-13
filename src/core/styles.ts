@@ -9,6 +9,9 @@ import { css } from "lit";
 export const sharedStyles = css`
   :host {
     --rohlik-accent: var(--primary-color);
+    display: block;
+    /* Lets cards adapt to their own width with @container queries. */
+    container-type: inline-size;
   }
 
   ha-card {
@@ -36,7 +39,8 @@ export const sharedStyles = css`
   }
 
   .header .title {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 4em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

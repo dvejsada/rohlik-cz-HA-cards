@@ -9,6 +9,8 @@ export interface DeliveryCardConfig extends RohlikCardConfig {
   show_order_summary?: boolean;
   show_express_chip?: boolean;
   show_refresh?: boolean;
+  show_slots?: boolean;
+  show_shop_link?: boolean;
   compact?: boolean;
 }
 
@@ -16,12 +18,27 @@ export interface DeliveryCardConfig extends RohlikCardConfig {
 export class RohlikDeliveryCardEditor extends RohlikBaseEditor<DeliveryCardConfig> {
   protected readonly labels = labels;
 
+  // Mirrors the card's own defaults (see `delivery-card.ts`'s `!== false`
+  // checks) so the form shows real effective values instead of every
+  // toggle starting unchecked.
+  protected readonly defaults = {
+    show_announcement: true,
+    show_order_summary: true,
+    show_express_chip: true,
+    show_refresh: true,
+    show_slots: true,
+    show_shop_link: true,
+    compact: false,
+  };
+
   protected extraSchema(): HaFormSchema[] {
     return [
       { name: "show_announcement", selector: { boolean: {} } },
       { name: "show_order_summary", selector: { boolean: {} } },
       { name: "show_express_chip", selector: { boolean: {} } },
       { name: "show_refresh", selector: { boolean: {} } },
+      { name: "show_slots", selector: { boolean: {} } },
+      { name: "show_shop_link", selector: { boolean: {} } },
       { name: "compact", selector: { boolean: {} } },
     ];
   }

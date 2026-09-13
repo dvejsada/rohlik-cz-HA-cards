@@ -78,10 +78,10 @@ function startServer() {
  * ready, and returns { page, errors }. Console errors and page errors
  * (uncaught exceptions) are collected for the whole page lifetime.
  */
-async function openPreview(browser, query) {
+async function openPreview(browser, query, viewport = { width: 1100, height: 1400 }) {
   const context = await browser.newContext({
     deviceScaleFactor: 2,
-    viewport: { width: 1100, height: 1400 },
+    viewport,
     // The mock data's ISO timestamps carry an explicit +02:00 (Europe/Prague
     // summer time) offset — pin the browser to that zone so the rendered
     // wall-clock times match what docs/dev/preview/mock-hass.js intends,
@@ -188,6 +188,30 @@ async function main() {
       await appHandle.screenshot({ path: path.join(IMAGES_DIR, "overview-dark.png") });
       console.log("  wrote overview-dark.png");
       report.push({ state: "arriving/dark", errors });
+      await context.close();
+    }
+
+    // ---- spending card, "this month" period with the monthly chart ----
+    {
+      const { context, page, errors } = await openPreview(browser, "?lang=cs&theme=light&state=arriving&period=month");
+      allErrors.push(...errors.map((e) => `[spending/month] ${e}`));
+      await shootElement(page, "rohlik-spending-card", "spending-card-month.png");
+      report.push({ state: "spending/month", errors });
+      await context.close();
+    }
+
+    // ---- phone-width overview (400px viewport, single column) ----
+    {
+      const { context, page, errors } = await openPreview(
+        browser,
+        "?lang=cs&theme=light&state=arriving",
+        { width: 400, height: 900 },
+      );
+      allErrors.push(...errors.map((e) => `[arriving/mobile] ${e}`));
+      const appHandle = await page.$("#app");
+      await appHandle.screenshot({ path: path.join(IMAGES_DIR, "overview-mobile.png") });
+      console.log("  wrote overview-mobile.png");
+      report.push({ state: "arriving/mobile", errors });
       await context.close();
     }
 

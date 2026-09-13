@@ -16,13 +16,15 @@ import type {
 } from "./types";
 import { findRohlikDevices, resolveEntities } from "./discovery";
 import { formatAgo, parseTs } from "./format";
-import { localize, coreStrings, type Dict } from "./localize";
+import { localize, coreStrings, withLanguage, type CardLanguage, type Dict } from "./localize";
 import { sharedStyles } from "./styles";
 
 export interface RohlikCardConfig extends LovelaceCardConfig {
   device: string;
   name?: string;
   accent?: string;
+  /** Card language; unset or `auto` follows the Home Assistant UI language. */
+  language?: CardLanguage | "auto";
 }
 
 const STALE_AFTER_MINUTES = 20;
@@ -41,7 +43,37 @@ export abstract class RohlikBaseCard<C extends RohlikCardConfig = RohlikCardConf
   /** Per-card string dictionary, merged with `coreStrings` at lookup time. */
   protected abstract readonly strings: Dict;
 
-  @property({ attribute: false }) public hass!: HomeAssistant;
+  private _hass!: HomeAssistant;
+
+  private _localeHass?: HomeAssistant;
+
+  /**
+   * The `hass` object as seen by the card. When the `language` option is set
+   * it is a shallow copy whose locale speaks that language, so every
+   * formatter and `t()` call follows the option without extra plumbing.
+   */
+  @property({ attribute: false })
+  public get hass(): HomeAssistant {
+    return this._localeHass ?? this._hass;
+  }
+
+  public set hass(value: HomeAssistant) {
+    const old = this.hass;
+    this._hass = value;
+    this._localeHass = this.applyLanguage(value);
+    this.requestUpdate("hass", old);
+  }
+
+  /** The unmodified `hass` (use for `callWS`/`callService` identity-sensitive code, if ever needed). */
+  protected get rawHass(): HomeAssistant {
+    return this._hass;
+  }
+
+  private applyLanguage(hass: HomeAssistant | undefined): HomeAssistant | undefined {
+    if (!hass || !this.config?.language || this.config.language === "auto") return undefined;
+    const localized = withLanguage(hass, this.config.language);
+    return localized === hass ? undefined : localized;
+  }
 
   @state() protected config!: C;
 
@@ -54,6 +86,7 @@ export abstract class RohlikBaseCard<C extends RohlikCardConfig = RohlikCardConf
       );
     }
     this.config = config;
+    this._localeHass = this.applyLanguage(this._hass);
     if (this.hass) {
       this.entities = resolveEntities(this.hass, this.config.device);
     }

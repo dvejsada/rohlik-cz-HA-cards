@@ -11,11 +11,14 @@ companion badge, `rohlik-delivery-badge`.
 |------------------------|---------|---------|-------------|
 | `device`               | string  | —       | **Required.** Rohlík.cz device id (pick it in the visual editor). |
 | `name`                 | string  | —       | Overrides the card title ("Next delivery" / "Příští rozvoz"). |
+| `language`             | string  | `auto`  | Card language: `auto` follows the Home Assistant UI language, or force `cs`/`en`. Added automatically to every card's editor — see `docs/DESIGN.md`. |
 | `accent`               | string  | —       | Overrides the accent colour (defaults to the theme's primary colour). |
 | `show_announcement`    | boolean | `true`  | Show the courier's announcement (`delivery_info`) while ordered/arriving. |
 | `show_order_summary`   | boolean | `true`  | Show the "N items · price" row. |
 | `show_express_chip`    | boolean | `true`  | Show the "Express available" chip when `is_express_available` is on. |
 | `show_refresh`         | boolean | `true`  | Show the manual refresh button. |
+| `show_slots`           | boolean | `true`  | In the "no order" state, show up to three compact upcoming-slot rows (Express/Standard/Eco). |
+| `show_shop_link`       | boolean | `true`  | In the "delivered" state, show an "Order again on rohlik.cz" link. |
 | `compact`              | boolean | `false` | Single-row layout: icon, headline, chip — no track, no rows. |
 | `tap_action`           | string  | —       | Set to `none` to disable tapping the card to open the `is_ordered` more-info dialog. |
 
@@ -28,6 +31,8 @@ show_announcement: true
 show_order_summary: true
 show_express_chip: true
 show_refresh: true
+show_slots: true
+show_shop_link: true
 compact: false
 ```
 
@@ -58,13 +63,22 @@ The card evaluates these in order — the first match wins:
    around delivery time doesn't lose it. Headline is that window-end time
    (or the flip-off time, if the window end wasn't known) with a
    "delivered" caption; the order summary row uses `last_order`'s
-   `Items`/`Price` attributes instead of `order_data`.
+   `Items`/`Price` attributes instead of `order_data`. Below it, a muted
+   "Order again on rohlik.cz" link opens the shop in a new tab (subject to
+   `show_shop_link`).
 4. **No order** — nothing ordered, and no order delivered in the last 6
    hours. Headline is the nearest available slot (`first_delivery`, e.g.
    "Zítra 8:00") with a "nearest slot" caption. An "Express available" chip
    appears when `is_express_available` is on (subject to
    `show_express_chip`); a "Slot reserved" chip appears when `is_reserved`
-   is on.
+   is on. If `is_reserved`'s attributes contain something that looks like a
+   reservation deadline (a key matching `till`/`until`/`expir*`/`end`,
+   case-insensitively, holding an ISO timestamp — the exact key varies with
+   the upstream API response), a "Reserved until HH:MM" line is shown too.
+   Subject to `show_slots`, up to three compact rows follow — one each for
+   `express_slot`, `standard_slot` and `eco_slot` — with an icon, the slot
+   name, its start (relative day + time), and its price ("free" when 0);
+   a slot whose sensor is `unknown`/`unavailable` is skipped.
 
 The refresh button calls `rohlikcz.update_delivery_times` while ordered or
 arriving, and `rohlikcz.refresh_slots` in the no-order state — both are
@@ -82,9 +96,9 @@ progress marker and the "delivered" 6-hour window stay accurate between
 ## Badge — rohlik-delivery-badge
 
 A compact pill for the same state machine, meant for the badge row above a
-view. Options: `device` (required), `name`, `accent`, `show_name` (adds the
-device name in front of the state word in the small label, default
-`false`).
+view. Options: `device` (required), `name`, `language` (`auto`/`cs`/`en`,
+same meaning as the card's), `accent`, `show_name` (adds the device name in
+front of the state word in the small label, default `false`).
 
 ```yaml
 type: custom:rohlik-delivery-badge

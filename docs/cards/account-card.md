@@ -11,6 +11,7 @@ last-order line and a manual data refresh.
 | `device`      | string  | —                                                                          | **Required.** Rohlík.cz device id (pick it in the visual editor). |
 | `name`        | string  | —                                                                          | Overrides the card title (defaults to the device name). |
 | `accent`      | string  | —                                                                          | Overrides the accent colour (defaults to the theme's primary colour). |
+| `language`    | `auto` \| `cs` \| `en` | `auto`                                                     | Card language. `auto` follows the Home Assistant UI language; otherwise every string, date and money value is forced to the chosen one regardless of the dashboard's own language. |
 | `stats`       | array   | `[credit, bags, no_limit, free_express, parents_club, reusable]`         | Which stat tiles to show, and in what order. |
 | `show_footer` | boolean | `true`                                                                     | Show the last-order line and the refresh button. |
 
@@ -47,12 +48,16 @@ show_footer: true
 
   A tile is skipped entirely (not shown as empty) when its backing entity
   isn't present on the device.
-- The footer (when `show_footer` is `true`) shows the last order on the
-  left — "Poslední objednávka 9. 9. · 23 položek · 1 486 Kč" style, built
-  from `last_order`'s timestamp and its `Items`/`Price` attributes — and,
-  on the right, the "updated N min ago" freshness line plus a ghost refresh
-  button. The refresh button calls `rohlikcz.update_data` (spinning while
-  in flight) and shows an inline error line if the call fails.
+- The footer (when `show_footer` is `true`) is two lines: the last order on
+  its own line, wrapping if it's long — "Poslední objednávka 13. 9. · 18
+  položek · 940,43 Kč" style, built from `last_order`'s timestamp and its
+  `Items`/`Price` attributes — then a second line, right-aligned, with the
+  "updated N min ago" freshness text and a ghost refresh button. The
+  refresh button calls `rohlikcz.update_data` (spinning while in flight)
+  and shows an inline error line if the call fails.
+- Below ~360px wide, the stat tiles drop from two columns to one, and the
+  "Xtra · N days" header chip wraps below the title instead of crowding
+  it.
 - If no `rohlikcz` entities can be found on the configured device, the card
   shows "Rohlík.cz entities not found on this device" instead of a blank
   card.

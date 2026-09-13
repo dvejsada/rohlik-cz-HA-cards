@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_CHECKOUT_URL,
   groupByCategory,
+  moveHighlight,
   parseQuickAdd,
   parseTodoItem,
+  resolveCheckoutUrl,
   type CartLine,
 } from "../src/cards/cart-card/parse";
 
@@ -163,5 +166,41 @@ describe("groupByCategory", () => {
 
   it("returns an empty array for no lines", () => {
     expect(groupByCategory([])).toEqual([]);
+  });
+});
+
+describe("resolveCheckoutUrl", () => {
+  it("falls back to the default Rohlík cart URL when unset", () => {
+    expect(resolveCheckoutUrl(undefined)).toBe(DEFAULT_CHECKOUT_URL);
+  });
+
+  it("falls back when the configured URL is blank", () => {
+    expect(resolveCheckoutUrl("   ")).toBe(DEFAULT_CHECKOUT_URL);
+  });
+
+  it("trims and returns a configured URL", () => {
+    expect(resolveCheckoutUrl("  https://example.com/cart  ")).toBe("https://example.com/cart");
+  });
+});
+
+describe("moveHighlight", () => {
+  it("moves down from nothing highlighted to the first row", () => {
+    expect(moveHighlight(-1, 1, 3)).toBe(0);
+  });
+
+  it("moves down through the list and clamps at the last row", () => {
+    expect(moveHighlight(0, 1, 3)).toBe(1);
+    expect(moveHighlight(2, 1, 3)).toBe(2);
+  });
+
+  it("moves up and deselects instead of wrapping past the first row", () => {
+    expect(moveHighlight(1, -1, 3)).toBe(0);
+    expect(moveHighlight(0, -1, 3)).toBe(-1);
+    expect(moveHighlight(-1, -1, 3)).toBe(-1);
+  });
+
+  it("returns -1 for an empty list regardless of direction", () => {
+    expect(moveHighlight(-1, 1, 0)).toBe(-1);
+    expect(moveHighlight(0, -1, 0)).toBe(-1);
   });
 });

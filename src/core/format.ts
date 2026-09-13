@@ -11,12 +11,25 @@ export function parseTs(state: string | undefined | null): Date | null {
   return date;
 }
 
-function lang(hass: HomeAssistant): string {
-  return hass.locale?.language || "en";
+/** Language the card should speak: `hass.locale.language`, then `hass.language`, then `en`. */
+export function lang(hass: HomeAssistant): string {
+  return hass.locale?.language || hass.language || "en";
 }
 
+/**
+ * Formats an amount the way Czech shops print it: number in the card's
+ * locale, two decimals, symbol after ("1 486,00 Kč" / "1,486.00 Kč").
+ * Non-CZK currencies fall back to the locale's own currency formatting.
+ */
 export function formatMoney(hass: HomeAssistant, amount: number, currency = "CZK"): string {
   const locale = lang(hass);
+  if (currency === "CZK") {
+    const num = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+    return `${num}\u00a0Kč`;
+  }
   try {
     return new Intl.NumberFormat(locale, {
       style: "currency",

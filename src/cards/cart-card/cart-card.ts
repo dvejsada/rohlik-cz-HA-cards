@@ -80,6 +80,9 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   @state() private searchAttempted = false;
   @state() private favouriteOnly = false;
 
+  /** Name of the product currently being added from search, shown as a status line. */
+  @state() private addingName: string | null = null;
+
   @state() private popoverOpen = false;
   @state() private popoverRect: { left: number; top: number; width: number } | null = null;
   @state() private highlightedIndex = -1;
@@ -109,9 +112,9 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
   }
 
   getGridOptions(): LovelaceGridOptions {
-    // Content-sized in the sections layout: the card grows with the cart and
-    // the list scrolls once it hits list_max_height, so nothing is cut off.
-    return { columns: 12, rows: "auto", min_columns: 6 };
+    // Fixed row count in the sections layout (resizable in the editor); the
+    // item list scrolls inside the card, so a long cart never overflows it.
+    return { columns: 12, rows: 8, min_columns: 6, min_rows: 4 };
   }
 
   public disconnectedCallback(): void {
@@ -370,8 +373,11 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     if (!configEntryId) return;
 
     const { quantity, name } = parseQuickAdd(text);
-    this.searching = true;
-    this.searchError = null;
+    // Same immediate feedback as the "+" button: close the popover, clear
+    // the box and show an "Adding…" line while the integration refreshes.
+    this.clearSearch();
+    this.addingName = name;
+    this.error = null;
     try {
       const response = await callRohlik<SearchAndAddResponse>(
         this.hass,
@@ -381,15 +387,14 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
         true,
       );
       if (response && response.success === false) {
-        this.searchError = response.message || this.t("search_add_error");
+        this.error = response.message || this.t("search_add_error");
         return;
       }
-      this.clearSearch();
       await this.loadItems();
     } catch {
-      this.searchError = this.t("search_add_error");
+      this.error = this.t("search_add_error");
     } finally {
-      this.searching = false;
+      this.addingName = null;
     }
   }
 
@@ -397,15 +402,22 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
     const configEntryId = await this.ensureConfigEntryId();
     if (!configEntryId) return;
     const { quantity } = parseQuickAdd(this.searchQuery.trim());
+    // add_to_cart triggers a full integration refresh before it returns, so
+    // give feedback right away: close the popover, clear the box and show an
+    // "Adding…" status line until the cart reloads.
+    this.clearSearch();
+    this.addingName = result.name ?? "";
+    this.error = null;
     try {
       await callRohlik(this.hass, configEntryId, "add_to_cart", {
         product_id: result.id,
         quantity,
       });
-      this.clearSearch();
       await this.loadItems();
     } catch {
-      this.searchError = this.t("search_add_error");
+      this.error = this.t("search_add_error");
+    } finally {
+      this.addingName = null;
     }
   }
 
@@ -468,6 +480,9 @@ export class RohlikCartCard extends RohlikBaseCard<CartCardConfig> {
           : nothing}
         ${this.error ? html`<div class="error">${this.error}</div>` : nothing}
         ${showSearch ? this.renderSearch() : nothing}
+        ${this.addingName !== null
+          ? html`<div class="adding">${this.renderSpinner()} ${this.t("adding", { name: this.addingName })}</div>`
+          : nothing}
         ${!isEmpty ? this.renderLines(grouped, showBrand, maxItems) : nothing}
 
         <div class="footer-row">

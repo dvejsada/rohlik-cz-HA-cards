@@ -20,6 +20,10 @@ export const sharedStyles = css`
     height: 100%;
     padding: 16px;
     box-sizing: border-box;
+    /* In the sections layout the card gets an exact row count; fill it and
+       scroll inside rather than spilling past the grid cell. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .header {
@@ -124,7 +128,9 @@ export const sharedStyles = css`
   }
 
   .footer {
-    margin-top: 8px;
+    /* Sticks to the bottom of the card when the grid gives it extra height. */
+    margin-top: auto;
+    padding-top: 8px;
     color: var(--secondary-text-color);
     font-size: 0.75rem;
   }

@@ -594,7 +594,7 @@ export function buildHass({ lang = "cs", state = "arriving" } = {}) {
         const rows = MONTHLY_HISTORY.map(({ monthsAgo, max }) => {
           const start = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
           const end = new Date(now.getFullYear(), now.getMonth() - monthsAgo + 1, 1);
-          return { start: start.getTime(), end: end.getTime(), max };
+          return { start: start.getTime(), end: end.getTime(), state: max, sum: max };
         });
         return { [entityId]: rows };
       }

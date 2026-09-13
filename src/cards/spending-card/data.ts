@@ -181,7 +181,10 @@ export function readMonthlyStats(response: unknown, entityId: string): MonthlySt
     const month =
       typeof startRaw === "number" || typeof startRaw === "string" ? new Date(startRaw) : null;
     if (!month || Number.isNaN(month.getTime())) continue;
-    const total = toNumber(r.max);
+    // `state` = last recorded state in the period (the month total for a
+    // sensor that resets on the 1st); `max`/`mean` kept as fallbacks for
+    // sensors with a different state_class.
+    const total = toNumber(r.state) ?? toNumber(r.max) ?? toNumber(r.mean);
     if (total === undefined) continue;
     out.push({ month, total });
   }
@@ -203,7 +206,7 @@ function monthKey(date: Date): string {
  * Builds the last 12 months (oldest first, ending on `now`'s month) from
  * `stats`, filling any month `stats` has no row for with 0, and overriding
  * the current month's total with `currentMonthTotal` (the live
- * `monthly_spent` state) since the statistics API only sees the max as of
+ * `monthly_spent` state) since the statistics API only sees the state as of
  * its last recorded hourly rollup, not the current running total.
  */
 export function monthlyChartSeries(

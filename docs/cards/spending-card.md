@@ -48,7 +48,8 @@ show_totals: true
 - **Months** (`chart: months`, the `auto` default in the Month period): the
   last 12 months, current month accented. Built from Home Assistant's own
   long-term statistics for the `monthly_spent` sensor (it has `state_class:
-  total` and resets on the 1st, so each month's statistical *max* is that
+  total` and resets on the 1st; Home Assistant records only `state` and
+  `sum` for such sensors, and the last recorded `state` of a month is that
   month's total) via:
 
   ```js
@@ -59,7 +60,7 @@ show_totals: true
     statistic_ids: ["sensor.<device>_monthly_spent"],
     period: "month",
     units: {},
-    types: ["max"],
+    types: ["state"],
   });
   ```
 

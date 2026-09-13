@@ -99,7 +99,7 @@ export class RohlikSpendingCard extends RohlikBaseCard<SpendingCardConfig> {
   }
 
   getGridOptions(): LovelaceGridOptions {
-    return { columns: 12, rows: "auto", min_columns: 6 };
+    return { columns: 12, rows: 12, min_columns: 6, min_rows: 5 };
   }
 
   private get effectivePeriod(): Period {
@@ -220,7 +220,10 @@ export class RohlikSpendingCard extends RohlikBaseCard<SpendingCardConfig> {
         statistic_ids: [entityId],
         period: "month",
         units: {},
-        types: ["max"],
+        // monthly_spent has state_class total: long-term statistics store only
+        // `state` and `sum` for it (never `max`), and its resets are not
+        // tracked by HA, so the last state within each month is the month total.
+        types: ["state"],
       })
       .then((response) => {
         this.monthly = { entityId, monthKey, stats: readMonthlyStats(response, entityId) };

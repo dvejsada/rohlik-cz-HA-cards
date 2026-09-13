@@ -16,7 +16,7 @@ the cart.
 | `group_by_category`   | boolean | `false` | Group cart lines under small uppercase category headers. |
 | `show_brand`          | boolean | `true`  | Show the brand in each line's secondary text. |
 | `max_items`           | number  | `0`     | Lines to show before collapsing the rest behind "Show all N"; `0` shows every line and lets the list scroll instead. |
-| `list_max_height`     | number  | `360`   | Maximum height of the item list in px; beyond that the list scrolls inside the card. `0` = unlimited. |
+| `list_max_height`     | number  | `360`   | Maximum height of the item list in px on pointer-fine (desktop) devices; beyond that the list scrolls inside the card. Ignored on touch devices, where the list grows so swiping still scrolls the dashboard. `0` = unlimited everywhere. |
 | `min_order`           | number  | `0`     | Minimum order value in Kč. When set, the card shows an "Above/Below minimum" chip and how much is missing; remaining Xtra no-limit orders count as above the minimum. `0` disables the check. |
 | `show_order_button`   | boolean | `true`  | Show the "Order" button in the footer that opens the Rohlík.cz cart. The button is enabled whenever the cart is not empty; Rohlík.cz enforces the real ordering rules at checkout. |
 | `checkout_url`        | string  | `https://www.rohlik.cz/kosik` | URL the "Order" button opens in a new tab. |

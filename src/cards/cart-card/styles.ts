@@ -11,11 +11,13 @@ export const cartStyles = css`
     color: var(--secondary-text-color);
   }
 
+  /* Scrolls only when list_max_height applies (pointer-fine devices, see
+     listMaxHeight() in cart-card.ts). No overscroll-behavior: once the list
+     reaches its end the scroll must chain to the dashboard view. */
   .lines {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    overscroll-behavior: contain;
   }
 
   .caption {

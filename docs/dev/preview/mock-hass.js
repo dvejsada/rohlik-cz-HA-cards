@@ -338,6 +338,27 @@ const ITEMS_ALL = ITEMS_YEAR.map((c) => ({
   units: Math.round(c.units * 3.6),
 }));
 
+// ---- Monthly history for the spending card's "Month" period chart ----
+// 12 months ending on the current (fixed-clock) month; the last entry's
+// `max` matches `monthly_spent`'s live state below, since the real sensor
+// keeps climbing through the month and the card overrides the current
+// month with the live state anyway.
+const MONTHLY_SPENT_ENTITY_ID = eid("sensor", "monthly_spent");
+const MONTHLY_HISTORY = [
+  { monthsAgo: 11, max: 1980.4 },
+  { monthsAgo: 10, max: 2410.9 },
+  { monthsAgo: 9, max: 1875.2 },
+  { monthsAgo: 8, max: 2660.75 },
+  { monthsAgo: 7, max: 2110.3 },
+  { monthsAgo: 6, max: 1790.6 },
+  { monthsAgo: 5, max: 2950.15 },
+  { monthsAgo: 4, max: 2205.4 },
+  { monthsAgo: 3, max: 2480.9 },
+  { monthsAgo: 2, max: 1690.25 },
+  { monthsAgo: 1, max: 2870.6 },
+  { monthsAgo: 0, max: 2340.5 },
+];
+
 // ---------------------------------------------------------------------------
 
 /**
@@ -545,6 +566,7 @@ export function buildHass({ lang = "cs", state = "arriving" } = {}) {
     devices: {
       [DEVICE_ID]: { id: DEVICE_ID, name: DEVICE_NAME, name_by_user: null, manufacturer: "Rohlík.cz" },
     },
+    language: lang,
     locale: { language: lang },
     themes: {},
     connection: {},
@@ -564,6 +586,17 @@ export function buildHass({ lang = "cs", state = "arriving" } = {}) {
             description: `Category: ${item.category}\nBrand: ${item.brand}\nProduct ID: ${item.id}`,
           })),
         };
+      }
+      if (msg.type === "recorder/statistics_during_period") {
+        const entityId = (msg.statistic_ids || [])[0];
+        if (entityId !== MONTHLY_SPENT_ENTITY_ID) return {};
+        const now = new Date();
+        const rows = MONTHLY_HISTORY.map(({ monthsAgo, max }) => {
+          const start = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+          const end = new Date(now.getFullYear(), now.getMonth() - monthsAgo + 1, 1);
+          return { start: start.getTime(), end: end.getTime(), max };
+        });
+        return { [entityId]: rows };
       }
       return {};
     },

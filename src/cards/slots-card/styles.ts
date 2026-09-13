@@ -19,8 +19,19 @@ export const slotsCardStyles = css`
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 0 1 auto;
+    min-width: 0;
     flex-wrap: wrap;
     margin-left: auto;
+  }
+
+  /* Below ~420px the actions drop under the title instead of squeezing it. */
+  @container rohlik-slots (max-width: 420px) {
+    .header-actions {
+      flex-basis: 100%;
+      justify-content: flex-end;
+      margin-left: 0;
+    }
   }
 
   .icon-toggle {
@@ -136,7 +147,7 @@ export const slotsCardStyles = css`
     border-radius: var(--ha-card-border-radius, 12px);
     background: color-mix(in srgb, var(--primary-text-color) 4%, transparent);
     min-width: 0;
-    min-height: 128px;
+    min-height: 96px;
   }
 
   .tile-head {

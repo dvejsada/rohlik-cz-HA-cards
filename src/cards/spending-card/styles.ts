@@ -1,6 +1,33 @@
 import { css } from "lit";
 
 export const styles = css`
+  :host {
+    container-type: inline-size;
+    container-name: rohlik-spending;
+  }
+
+  /* Let the period pills drop under the title instead of squeezing it. */
+  .header {
+    flex-wrap: wrap;
+  }
+
+  .header .title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  @container rohlik-spending (max-width: 480px) {
+    .header .segmented {
+      flex-basis: 100%;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .header .segmented {
+      flex-basis: 100%;
+    }
+  }
+
   .segmented {
     display: inline-flex;
     padding: 2px;
@@ -20,6 +47,7 @@ export const styles = css`
     cursor: pointer;
     white-space: nowrap;
     font-family: inherit;
+    flex: 0 0 auto;
   }
 
   .pill.active {
@@ -27,11 +55,15 @@ export const styles = css`
     color: var(--text-primary-color, #fff);
   }
 
+  /* Level pills (L0..L3/Items) can outgrow the card — scroll rather than
+     wrap into an awkward multi-row block. */
   .pills-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 6px;
     margin-bottom: 10px;
+    scrollbar-width: thin;
   }
 
   .totals {
@@ -39,6 +71,46 @@ export const styles = css`
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     margin-bottom: 16px;
+  }
+
+  @container rohlik-spending (max-width: 420px) {
+    .totals {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .totals-cell:last-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .totals {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .totals-cell:last-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @container rohlik-spending (max-width: 280px) {
+    .totals {
+      grid-template-columns: 1fr;
+    }
+
+    .totals-cell:last-child {
+      grid-column: auto;
+    }
+  }
+
+  @media (max-width: 280px) {
+    .totals {
+      grid-template-columns: 1fr;
+    }
+
+    .totals-cell:last-child {
+      grid-column: auto;
+    }
   }
 
   .totals-cell {
@@ -66,7 +138,7 @@ export const styles = css`
     white-space: nowrap;
   }
 
-  .years-chart {
+  .chart-svg {
     display: block;
     width: 100%;
     max-width: 100%;
@@ -76,14 +148,26 @@ export const styles = css`
     overflow: visible;
   }
 
-  .years-chart text {
+  .chart-svg text {
     font-family: inherit;
+  }
+
+  .chart-hint {
+    color: var(--secondary-text-color);
+    font-size: 0.8rem;
+    padding: 4px 0 12px;
   }
 
   .breakdown-hint {
     color: var(--secondary-text-color);
     font-size: 0.85rem;
     padding: 8px 0;
+  }
+
+  .breakdown-year-hint {
+    color: var(--secondary-text-color);
+    font-size: 0.72rem;
+    margin-bottom: 8px;
   }
 
   .breakdown-row {
@@ -99,24 +183,49 @@ export const styles = css`
     border-bottom: none;
   }
 
+  /* Fixed proportions rather than a shrink-to-fit flex row, so long names
+     wrap onto a second line instead of being cut off mid-word. */
   .breakdown-main {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+    grid-template-areas: "name bar amount";
     align-items: center;
     gap: 10px;
   }
 
+  @container rohlik-spending (max-width: 420px) {
+    .breakdown-main {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "name name"
+        "bar amount";
+      row-gap: 4px;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .breakdown-main {
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "name name"
+        "bar amount";
+      row-gap: 4px;
+    }
+  }
+
   .breakdown-name {
-    flex: 0 0 auto;
-    width: 38%;
+    grid-area: name;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     color: var(--primary-text-color);
     font-size: 0.88rem;
+    line-height: 1.25;
   }
 
   .breakdown-bar-track {
-    flex: 1;
+    grid-area: bar;
     height: 10px;
     border-radius: 5px;
     background: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
@@ -132,7 +241,7 @@ export const styles = css`
   }
 
   .breakdown-spent {
-    flex: 0 0 auto;
+    grid-area: amount;
     min-width: 64px;
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -141,7 +250,6 @@ export const styles = css`
   }
 
   .breakdown-expand {
-    padding-left: calc(38% + 10px);
     color: var(--secondary-text-color);
     font-size: 0.75rem;
   }

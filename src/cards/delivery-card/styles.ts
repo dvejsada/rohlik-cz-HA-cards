@@ -19,10 +19,20 @@ export const deliveryCardStyles = css`
     outline-offset: 2px;
   }
 
+  /* The title keeps a floor and the chips shrink (wrapping) first, so three
+     chips can never squeeze the title to zero width in a mid-width card. */
+  .header .title {
+    flex: 1 1 auto;
+    min-width: 5em;
+  }
+
   .chips {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 6px;
+    flex: 0 1 auto;
+    min-width: 0;
     flex-wrap: wrap;
   }
 
@@ -215,7 +225,7 @@ export const deliveryCardStyles = css`
   /* :host sets container-type: inline-size (core/styles.ts) — this queries
      the card's own rendered width, not the viewport, so it also kicks in
      for a narrow column in a dashboard grid, not just a phone screen. */
-  @container (max-width: 420px) {
+  @container (max-width: 520px) {
     .header {
       flex-wrap: wrap;
       row-gap: 6px;

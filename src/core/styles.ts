@@ -39,7 +39,8 @@ export const sharedStyles = css`
   }
 
   .header .title {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 4em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

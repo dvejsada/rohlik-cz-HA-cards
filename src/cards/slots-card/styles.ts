@@ -265,4 +265,149 @@ export const slotsCardStyles = css`
       align-self: center;
     }
   }
+
+  /* ---- All delivery windows (show_windows) ---- */
+  .windows {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .day-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .day-chip,
+  .seg {
+    flex: none;
+    min-height: 56px;
+    padding: 6px 16px;
+    border: 2px solid var(--ha-card-border-color, var(--divider-color));
+    border-radius: 8px;
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .day-chip.on,
+  .seg.on {
+    border-color: var(--accent-color, var(--rohlik-accent));
+    background: color-mix(in srgb, var(--accent-color, var(--rohlik-accent)) 12%, transparent);
+  }
+
+  .day-chip:focus-visible,
+  .seg:focus-visible {
+    outline: 2px solid var(--accent-color, var(--rohlik-accent));
+    outline-offset: 2px;
+  }
+
+  .day-name {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  .day-free {
+    color: var(--secondary-text-color);
+    font-size: 0.8rem;
+  }
+
+  .day-chip.none .day-name {
+    color: var(--secondary-text-color);
+  }
+
+  .segmented {
+    display: flex;
+    gap: 8px;
+  }
+
+  .seg {
+    flex: 1 1 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    font-size: 0.95rem;
+  }
+
+  .seg-count {
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 12px;
+    color: var(--secondary-text-color);
+    background: color-mix(in srgb, var(--secondary-text-color) 15%, transparent);
+    font-size: 0.8rem;
+  }
+
+  .window-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+
+  .window-grid.quarter {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  }
+
+  .window {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 56px;
+    padding: 8px 12px;
+    border: 2px solid var(--ha-card-border-color, var(--divider-color));
+    border-radius: 8px;
+    background: var(--card-background-color);
+    box-sizing: border-box;
+  }
+
+  .window.booked {
+    border-style: dashed;
+    color: var(--state-inactive-color, var(--secondary-text-color));
+  }
+
+  .window-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary-text-color);
+    font-size: 1rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .window.booked .window-time {
+    color: var(--state-inactive-color, var(--secondary-text-color));
+    font-weight: 400;
+  }
+
+  .window-time .eco {
+    --mdc-icon-size: 16px;
+    color: var(--success-color, #4caf50);
+  }
+
+  .window-meta {
+    color: var(--secondary-text-color);
+    font-size: 0.8rem;
+  }
+
+  .window .capacity-bar {
+    margin-top: auto;
+  }
+
+  .windows-hint {
+    padding: 8px 4px;
+    color: var(--secondary-text-color);
+    font-size: 0.9rem;
+  }
 `;

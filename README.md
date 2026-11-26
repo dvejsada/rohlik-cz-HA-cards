@@ -115,7 +115,30 @@ page is visible, so the "Express available" chip flips the moment a slot opens. 
 side by side in a wide card and stack into compact rows in a narrow one.
 
 Options: `slots`, `layout` (`auto`, `row`, `column`), `show_price`, `show_location`,
-`watch_interval`. Reference: [docs/cards/slots-card.md](docs/cards/slots-card.md).
+`watch_interval`, `show_tiles`, `show_windows`, `hide_booked`. Reference:
+[docs/cards/slots-card.md](docs/cards/slots-card.md).
+
+With `show_windows: true` (needs HA-RohlikCZ with the Delivery slots sensor) the card also
+lists **every delivery window** of the coming days: a chip per day, a switch between one-hour
+and 15-minute windows where the shop offers them, and a tile per window with its free
+capacity. Booked-out windows stay visible with a dashed outline unless `hide_booked` is set;
+`show_tiles: false` shows only the window list. The chosen day and length are remembered per
+browser.
+
+<img src="docs/images/slots-card-windows.png" alt="Delivery Slots card with every delivery window" width="720">
+
+### Favourites — `rohlik-favourites-card`
+
+<img src="docs/images/favourites-card.png" alt="Favourites card" width="720">
+
+Your favourite products (marked with the heart in the shop's app) as a touch-friendly list:
+picture, name, packaging and price, and a large **+** that puts one piece in the cart. A search
+box filters the list as you type; products already in the cart show how many are in it,
+out-of-stock ones are greyed out. Two columns on a wide card, one on a phone. Needs HA-RohlikCZ
+with the Favourites sensor.
+
+Options: `show_search`, `show_price`, `hide_out_of_stock`, `max_items` (rows before "Show all",
+default 12, 0 = all). Reference: [docs/cards/favourites-card.md](docs/cards/favourites-card.md).
 
 ### Account — `rohlik-account-card`
 

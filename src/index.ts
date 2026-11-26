@@ -2,6 +2,7 @@
 import "./cards/delivery-card/delivery-card";
 import "./badges/delivery-badge/delivery-badge";
 import "./cards/cart-card/cart-card";
+import "./cards/favourites-card/favourites-card";
 import "./cards/slots-card/slots-card";
 import "./cards/account-card/account-card";
 import "./cards/spending-card/spending-card";

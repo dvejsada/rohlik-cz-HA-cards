@@ -209,6 +209,19 @@ async function main() {
       await context.close();
     }
 
+    // ---- favourites list and every delivery window ----
+    {
+      const { context, page, errors } = await openPreview(
+        browser,
+        "?lang=cs&theme=light&state=none&windows=1",
+      );
+      allErrors.push(...errors.map((e) => `[favourites/windows] ${e}`));
+      await shootElement(page, "rohlik-favourites-card", "favourites-card.png");
+      await shootElement(page, "rohlik-slots-card", "slots-card-windows.png");
+      report.push({ state: "favourites/windows", errors });
+      await context.close();
+    }
+
     // ---- English smoke pass (not screenshotted, just checked for errors) ----
     {
       const { context, errors } = await openPreview(browser, "?lang=en&theme=light&state=arriving");

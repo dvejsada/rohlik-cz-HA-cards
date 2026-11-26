@@ -258,6 +258,46 @@ function cartItemsFor(kind) {
   return CART_ITEMS;
 }
 
+// ---- Favourites (invented products; ids 300101/300102 are also in the cart) ----
+const thumb = (name) => new URL(`./thumbs/${name}.svg`, import.meta.url).href;
+
+const FAVOURITES = [
+  { id: 300101, name: "Mléko plnotučné 1 l", amount: "1 l", price: 44.8, currency: "CZK", in_stock: true, on_sale: false, image: thumb("milch") },
+  { id: 300102, name: "Rohlík tukový", amount: "1 ks", price: 14.8, currency: "CZK", in_stock: true, on_sale: false, image: thumb("semmel") },
+  { id: 300103, name: "Bio vejce M, 10 ks", amount: "10 ks", price: 124.8, currency: "CZK", in_stock: true, on_sale: false, image: thumb("eier") },
+  { id: 300107, name: "Špagety z tvrdé pšenice", amount: "500 g", price: 42.2, currency: "CZK", in_stock: true, on_sale: true, image: thumb("nudeln") },
+  { id: 300108, name: "Máslo", amount: "250 g", price: 87.2, currency: "CZK", in_stock: false, on_sale: false, image: thumb("butter") },
+  { id: 300104, name: "Banány", amount: "ca. 1 kg", price: 49.8, currency: "CZK", in_stock: true, on_sale: false, image: thumb("banane") },
+  { id: 300105, name: "Jablka Gala", amount: "1 kg", price: 69.8, currency: "CZK", in_stock: true, on_sale: false, image: thumb("apfel") },
+  { id: 300106, name: "Minerální voda perlivá", amount: "1,5 l", price: 19.8, currency: "CZK", in_stock: true, on_sale: false, image: thumb("wasser") },
+  { id: 300111, name: "Ovesné vločky jemné", amount: "500 g", price: 32.2, currency: "CZK", in_stock: true, on_sale: false, image: null },
+  { id: 300112, name: "Bio jogurt bílý 3,6 %", amount: "500 g", price: 37.2, currency: "CZK", in_stock: true, on_sale: false, image: null },
+];
+
+/** Delivery windows for three days after FIXED_NOW: hours 8-21, 15-min windows on top. */
+function buildDeliverySlots() {
+  const slots = [];
+  const days = ["2026-09-14", "2026-09-15", "2026-09-16"];
+  const labels = ["Zítra", "Út", "St"];
+  let id = 1;
+  days.forEach((date, d) => {
+    for (let h = 8; h < 22; h++) {
+      const hh = String(h).padStart(2, "0");
+      const next = String(h + 1).padStart(2, "0");
+      // Mornings fill up first; the first day is booked out until 11.
+      const free = d === 0 && h < 11 ? 0 : Math.min(95, 20 + ((h * 7 + d * 13) % 70));
+      slots.push({ id: id++, date, day: labels[d], since: `${date}T${hh}:00:00+02:00`, till: `${date}T${next}:00:00+02:00`, minutes: 60, free, price: 0, premium: false, eco: h >= 10 && h < 14 });
+      for (let q = 0; q < 4; q++) {
+        const m1 = String(q * 15).padStart(2, "0");
+        const end = q === 3 ? `${next}:00` : `${hh}:${String((q + 1) * 15).padStart(2, "0")}`;
+        const qfree = free === 0 ? 0 : Math.max(0, free - 10 * ((q + h) % 3));
+        slots.push({ id: id++, date, day: labels[d], since: `${date}T${hh}:${m1}:01+02:00`, till: `${date}T${end}:00+02:00`, minutes: 15, free: qfree, price: 0, premium: true, eco: false });
+      }
+    }
+  });
+  return slots;
+}
+
 // ---- Spending analytics ----
 const BY_YEAR = {
   2023: { total: 18320.5, order_count: 40 },
@@ -588,6 +628,16 @@ export function buildHass({ lang = "cs", state = "arriving", cart = "default" } 
   }
   addItems("items_this_year", ITEMS_YEAR, { year: 2026 });
   addItems("items_all_time", ITEMS_ALL);
+
+  // ---- favourites + all delivery windows ----
+  {
+    add("sensor", "favourites", FAVOURITES.length, {
+      products: FAVOURITES,
+      updated: FIXED_NOW_ISO,
+    });
+    const windows = buildDeliverySlots();
+    add("sensor", "delivery_slots", windows.filter((w) => w.free > 0).length, { slots: windows });
+  }
 
   // ---- todo ----
   states[CART_ENTITY_ID] = st(cartItems.length, {});

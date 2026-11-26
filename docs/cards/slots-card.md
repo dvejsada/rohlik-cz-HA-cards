@@ -16,6 +16,9 @@ freed-up express slot while the dashboard tab is open.
 | `show_price`     | boolean                                 | `true`                             | Show the price/"free" part of the meta line on each tile. |
 | `show_location`  | boolean                                 | `true`                             | Show the delivery address line (`first_delivery`'s `delivery_location`) under the header. |
 | `watch_interval` | number (seconds)                        | `15`                               | How often "watch express" polls `refresh_slots` while it's on. Clamped to 10 s minimum. |
+| `show_tiles`     | boolean                                 | `true`                             | Show the express/standard/eco tiles. |
+| `show_windows`   | boolean                                 | `false`                            | Show every delivery window with a day picker and a one-hour / 15-minute switch. Reads the `delivery_slots` sensor (HA-RohlikCZ with the Delivery slots sensor); without it the card says so. |
+| `hide_booked`    | boolean                                 | `false`                            | Leave booked-out windows out of the window list (otherwise they show with a dashed outline). |
 | `layout`         | `auto` \| `row` \| `column`             | `auto`                              | `auto` shows tiles side by side once the card is at least ~480px wide, and one compact row per slot below that. `row` always lays tiles side by side (collapsing to one column only at very narrow widths); `column` always stacks full-size tiles. |
 
 ## YAML example
@@ -34,6 +37,13 @@ layout: auto
 ```
 
 ## Behaviour
+
+- **Window list** (`show_windows`): one chip per delivery day with its number of free
+  windows; the first day with a free window is selected unless you picked another one
+  before (remembered per device in the browser). If the day has both one-hour and
+  15-minute windows, a switch picks the length. Each window shows its time, the free
+  capacity and a bar (amber below 50 %); booked-out windows are dashed and grey. Red is
+  not used here. The list is read-only: booking happens in the shop's app.
 
 - Every tile has the same anatomy, whether the slot is available or not, so
   the row never looks misaligned: icon + fixed type label ("Express" /

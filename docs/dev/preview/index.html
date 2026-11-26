@@ -119,6 +119,7 @@
         <div id="rohlik-delivery-card"></div>
         <div id="rohlik-cart-card"></div>
         <div id="rohlik-slots-card" class="span-2"></div>
+        <div id="rohlik-favourites-card" class="span-2"></div>
         <div id="rohlik-account-card"></div>
         <div id="rohlik-spending-card" class="span-2"></div>
       </div>
@@ -168,6 +169,7 @@
         "rohlik-slots-card",
         "rohlik-account-card",
         "rohlik-spending-card",
+        "rohlik-favourites-card",
       ];
       const BADGE_TAGS = ["rohlik-delivery-badge"];
       const ALL_TAGS = [...CARD_TAGS, ...BADGE_TAGS];
@@ -203,6 +205,9 @@
           }
           if (tag === "rohlik-slots-card" && pairRow) {
             config.grid_options = { columns: 6 };
+          }
+          if (tag === "rohlik-slots-card" && params.get("windows") === "1") {
+            config.show_windows = true;
           }
           if (tag === "rohlik-spending-card" && period) {
             config.default_period = period;

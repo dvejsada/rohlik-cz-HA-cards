@@ -12,6 +12,9 @@ export interface SlotsCardConfig extends RohlikCardConfig {
   show_location?: boolean;
   watch_interval?: number;
   layout?: "auto" | "row" | "column";
+  show_tiles?: boolean;
+  show_windows?: boolean;
+  hide_booked?: boolean;
 }
 
 @customElement("rohlik-slots-card-editor")
@@ -24,6 +27,9 @@ export class RohlikSlotsCardEditor extends RohlikBaseEditor<SlotsCardConfig> {
     show_location: true,
     watch_interval: 15,
     layout: "auto",
+    show_tiles: true,
+    show_windows: false,
+    hide_booked: false,
   };
 
   protected extraSchema(): HaFormSchema[] {
@@ -56,6 +62,9 @@ export class RohlikSlotsCardEditor extends RohlikBaseEditor<SlotsCardConfig> {
           },
         },
       },
+      { name: "show_tiles", selector: { boolean: {} } },
+      { name: "show_windows", selector: { boolean: {} } },
+      { name: "hide_booked", selector: { boolean: {} } },
       { name: "show_price", selector: { boolean: {} } },
       { name: "show_location", selector: { boolean: {} } },
       {
